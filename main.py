@@ -31,7 +31,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str):
                 file.write(chunk)
 
 
-def run_download(video_content_id):
+def run_download(video_content_id: int):
     name_folder, file_name, video_url = get_video_details(video_content_id)
     print(f'Got video details: "{file_name}" - "{video_url}"')
     if file_name and video_url:
@@ -43,9 +43,9 @@ def run_download(video_content_id):
 
 if __name__ == "__main__":
     EPISODES_TO_DOWNLOAD = 18
-    IS_TV_SHOW = True
+    IS_TV_SHOW = False
     # get this video ID from https://err.ee url ID example: https://lasteekraan.err.ee/1609219331
-    video_content_id = 1608776890
+    video_content_id = 1609438705
 
     if IS_TV_SHOW:
         print(f"Downloading TV show with {EPISODES_TO_DOWNLOAD} episodes")
