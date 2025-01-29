@@ -1,4 +1,4 @@
-from math import e
+import re
 import os
 from threading import TIMEOUT_MAX
 import requests
@@ -39,19 +39,28 @@ def run_download(video_content_id: int):
         download_mp4(name_folder, file_name, video_url)
     else:
         print("Failed to get video details")
+        
+def extract_video_id(url):
+    match = re.search(r'/(\d+)(?:/|$)', url)
+    if not match:
+        print("Failed to extract video ID from URL")
+        return None
+    video_id_match = match.group(1)
+    print(f"Extracted video ID: {video_id_match}")
+    return video_id_match
 
 
 if __name__ == "__main__":
+    ERR_URL = 'https://lasteekraan.err.ee/1608442991/oed'
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
-    # get this video ID from https://err.ee url ID example: https://lasteekraan.err.ee/1609219331
-    video_content_id = 1609438705
+    video_id = extract_video_id(ERR_URL)
 
     if IS_TV_SHOW:
         print(f"Downloading TV show with {EPISODES_TO_DOWNLOAD} episodes")
         for i in range(EPISODES_TO_DOWNLOAD):
-            run_download(video_content_id)
-            video_content_id += 3
+            run_download(video_id)
+            video_id += 3
     else:
         print("Downloading single video")
-        run_download(video_content_id)
+        run_download(video_id)
