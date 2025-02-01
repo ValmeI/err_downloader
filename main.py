@@ -15,8 +15,13 @@ def get_video_details(content_id: int):
         title_with_season_episode_year = (
             f"{data['data']['mainContent']['statsHeading']} {data['data']['mainContent']['year']}"
         )
-        mp4_url = "https:" + data["data"]["mainContent"]["medias"][0]["src"]["file"].replace("\\", "")
-        return folder_name, title_with_season_episode_year, mp4_url
+        try:
+            mp4_url = "https:" + data["data"]["mainContent"]["medias"][0]["src"]["file"].replace("\\", "")
+            print(f"Got video details: {folder_name} - {title_with_season_episode_year} - {mp4_url}")
+            return folder_name, title_with_season_episode_year, mp4_url
+        except IndexError:
+            print("Failed to get video details, no mp4 URL found")
+            return None, None, None
     return None, None, None
 
 
@@ -39,9 +44,10 @@ def run_download(video_content_id: int):
         download_mp4(name_folder, file_name, video_url)
     else:
         print("Failed to get video details")
-        
+
+
 def extract_video_id(url):
-    match = re.search(r'/(\d+)(?:/|$)', url)
+    match = re.search(r"/(\d+)(?:/|$)", url)
     if not match:
         print("Failed to extract video ID from URL")
         return None
@@ -51,7 +57,7 @@ def extract_video_id(url):
 
 
 if __name__ == "__main__":
-    ERR_URL = 'https://lasteekraan.err.ee/1608442991/oed'
+    ERR_URL = "https://lasteekraan.err.ee/1203172/naksitrallid"
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
     video_id = extract_video_id(ERR_URL)
