@@ -7,7 +7,7 @@ from tqdm import tqdm
 TIMEOUT_MAX = 60
 
 
-def get_video_details(content_id: int):
+def get_video_details(content_id: int) -> tuple[str | None, str | None, str | None]:
     url = f"https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={content_id}"
     response = requests.get(url, timeout=TIMEOUT_MAX)
     if response.status_code == 200:
@@ -26,7 +26,7 @@ def get_video_details(content_id: int):
     return None, None, None
 
 
-def download_mp4(heading: str, file_title: str, mp4_url: str):
+def download_mp4(heading: str, file_title: str, mp4_url: str) -> None:
     folder_name = heading.replace(" ", "_")
     os.makedirs(folder_name, exist_ok=True)
     file_path = os.path.join(folder_name, f"{file_title}.mp4")
@@ -42,7 +42,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str):
                         pbar.update(len(chunk))
 
 
-def run_download(video_content_id: int):
+def run_download(video_content_id: int) -> None:
     name_folder, file_name, video_url = get_video_details(video_content_id)
     print(f'Got video details: "{file_name}" - "{video_url}"')
     if file_name and video_url:
@@ -52,7 +52,7 @@ def run_download(video_content_id: int):
         print("Failed to get video details")
 
 
-def extract_video_id(url):
+def extract_video_id(url: str) -> str | None:
     match = re.search(r"/(\d+)(?:/|$)", url)
     if not match:
         print("Failed to extract video ID from URL")
