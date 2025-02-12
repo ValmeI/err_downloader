@@ -12,13 +12,13 @@ def get_video_details(content_id: int) -> tuple[str | None, str | None, str | No
     response = requests.get(url, timeout=TIMEOUT_MAX)
     if response.status_code == 200:
         data = response.json()
-        folder_name = data["data"]["mainContent"]["heading"]
+        folder_name = data["data"]["mainContent"]["heading"].replace(".", "")
         title_with_season_episode_year = (
             f"{data['data']['mainContent']['statsHeading']} {data['data']['mainContent']['year']}"
         )
         try:
             mp4_url = "https:" + data["data"]["mainContent"]["medias"][0]["src"]["file"].replace("\\", "")
-            print(f"Got video details: {folder_name} - {title_with_season_episode_year} - {mp4_url}")
+            print(f"Got video details: - {title_with_season_episode_year} - {mp4_url}")
             return folder_name, title_with_season_episode_year, mp4_url
         except IndexError:
             print("Failed to get video details, no mp4 URL found")
@@ -44,7 +44,6 @@ def download_mp4(heading: str, file_title: str, mp4_url: str) -> None:
 
 def run_download(video_content_id: int) -> None:
     name_folder, file_name, video_url = get_video_details(video_content_id)
-    print(f'Got video details: "{file_name}" - "{video_url}"')
     if file_name and video_url:
         print(f"Downloading video: {file_name}")
         download_mp4(name_folder, file_name, video_url)
