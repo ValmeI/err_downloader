@@ -39,7 +39,7 @@ def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Op
 
 def download_mp4(heading: str, file_title: str, mp4_url: str) -> bool:
     try:
-        folder_name = heading.replace(" ", "_")
+        folder_name = heading
         os.makedirs(folder_name, exist_ok=True)
         file_path = os.path.join(folder_name, f"{file_title}.mp4")
         
@@ -87,16 +87,16 @@ def extract_video_id(url: str) -> Optional[int]:
         return None
         
     try:
-        video_id = int(match.group(1))
-        print(f"Extracted video ID: {video_id}")
-        return video_id
+        found_video_id = int(match.group(1))
+        print(f"Extracted video ID: {found_video_id}")
+        return found_video_id
     except ValueError:
         print("Invalid video ID format")
         return None
 
 
 if __name__ == "__main__":
-    ERR_URL = "https://lasteekraan.err.ee/1609584401/vaike-allan-inimantenn"
+    ERR_URL = "https://jupiter.err.ee/1609111700/metsloomade-elu"
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
     
