@@ -96,21 +96,25 @@ def extract_video_id(url: str) -> Optional[int]:
 
 
 if __name__ == "__main__":
-    ERR_URL = "https://lasteekraan.err.ee/1609432279/maagiliste-olendite-kool-2"
+    ERR_URLS: list[str] = [
+        "https://lasteekraan.err.ee/1609233140/maagiline-reis-kuule",
+        "https://lasteekraan.err.ee/1608413900/lohe-zog-ja-lendavad-tohtrid",
+    ]
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
 
-    video_id = extract_video_id(ERR_URL)
-    if not video_id:
-        sys.exit(1)
-
-    if IS_TV_SHOW:
-        print(f"Downloading TV show with {EPISODES_TO_DOWNLOAD} episodes")
-        for i in range(EPISODES_TO_DOWNLOAD):
-            if not run_download(video_id):
-                print(f"Failed to download episode {i + 1}")
-            video_id += 3
-    else:
-        print("Downloading single video")
-        if not run_download(video_id):
+    for err_url in ERR_URLS:
+        video_id = extract_video_id(err_url)
+        if not video_id:
             sys.exit(1)
+
+        if IS_TV_SHOW:
+            print(f"Downloading TV show with {EPISODES_TO_DOWNLOAD} episodes")
+            for i in range(EPISODES_TO_DOWNLOAD):
+                if not run_download(video_id):
+                    print(f"Failed to download episode {i + 1}")
+                video_id += 3
+        else:
+            print("Downloading single video")
+            if not run_download(video_id):
+                sys.exit(1)
