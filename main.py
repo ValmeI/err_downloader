@@ -53,6 +53,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str) -> bool:
                     if chunk:
                         file.write(chunk)
                         pbar.update(len(chunk))
+        print("-------------------Download completed-------------------")
         return True
 
     except RequestException as e:
@@ -97,8 +98,8 @@ def extract_video_id(url: str) -> Optional[int]:
 
 if __name__ == "__main__":
     ERR_URLS: list[str] = [
-        "https://lasteekraan.err.ee/1609233140/maagiline-reis-kuule",
-        "https://lasteekraan.err.ee/1608413900/lohe-zog-ja-lendavad-tohtrid",
+        "https://jupiter.err.ee/1608184120/armastus-kolme-apelsini-vastu-lopuetendus",
+        "https://lasteekraan.err.ee/1609239686/mesilane-maia-3-kuldne-kera",
     ]
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
