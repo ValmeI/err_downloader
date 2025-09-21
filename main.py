@@ -72,7 +72,7 @@ def run_download(video_content_id: int) -> bool:
     name_folder, file_name, video_url = get_video_details(video_content_id)
     if all((name_folder, file_name, video_url)):
         print(f"Downloading video: {file_name}")
-        return download_mp4(name_folder, file_name, video_url)
+        return download_mp4(name_folder, file_name, video_url) # type: ignore
     print("Failed to get video details")
     return False
 
@@ -98,8 +98,9 @@ def extract_video_id(url: str) -> Optional[int]:
 
 if __name__ == "__main__":
     ERR_URLS: list[str] = [
-        "https://jupiter.err.ee/1608184120/armastus-kolme-apelsini-vastu-lopuetendus",
-        "https://lasteekraan.err.ee/1609239686/mesilane-maia-3-kuldne-kera",
+        "https://lasteekraan.err.ee/1609247582/kurepoeg-rihhard",
+        "https://lasteekraan.err.ee/1609797197/kurepoeg-rihhard-2",
+        "https://lasteekraan.err.ee/1608961403/dzungliassad"
     ]
     EPISODES_TO_DOWNLOAD = 18
     IS_TV_SHOW = False
