@@ -7,12 +7,16 @@ from tqdm import tqdm
 from requests.exceptions import RequestException
 
 TIMEOUT_MAX = 60
+CHUNK_SIZE = 1048576  # 1MB chunks for better performance
+
+# Create a session for connection reuse
+session = requests.Session()
 
 
 def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     try:
         url = f"https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={content_id}"
-        response = requests.get(url, timeout=TIMEOUT_MAX)
+        response = session.get(url, timeout=TIMEOUT_MAX)
         response.raise_for_status()
 
         data = response.json()
@@ -49,7 +53,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str) -> bool:
         total = int(response.headers.get("content-length", 0))
         with open(file_path, "wb") as file:
             with tqdm(total=total, unit="B", unit_scale=True, desc=file_title) as pbar:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
                     if chunk:
                         file.write(chunk)
                         pbar.update(len(chunk))
