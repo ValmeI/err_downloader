@@ -80,15 +80,16 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, skip_existing: boo
         return False
 
 
-def run_download(video_content_id: int) -> bool:
+def run_download(video_content_id: int, series_name: Optional[str] = None) -> bool:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
         logger.error("Invalid video content ID")
         return False
 
-    name_folder, file_name, video_url = get_video_details(video_content_id)
-    if all((name_folder, file_name, video_url)):
-        return download_mp4(name_folder, file_name, video_url, settings.SKIP_EXISTING)  # type: ignore
+    folder_name, file_name, video_url = get_video_details(video_content_id)
+    if all((folder_name, file_name, video_url)):
+        final_folder = series_name if series_name else folder_name
+        return download_mp4(final_folder, file_name, video_url, settings.SKIP_EXISTING)  # type: ignore
 
     logger.error("Failed to get video details")
     return False
@@ -114,8 +115,8 @@ def extract_video_id(url: str) -> Optional[int]:
         return None
 
 
-def get_all_episodes_from_series(series_id: int) -> List[int]:
-    """Get all episode IDs from a series."""
+def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[int]]:
+    """Get all episode IDs from a series. Returns (series_name, episode_ids)."""
     try:
         url = API_BASE_URL.format(series_id)
         logger.info(f"Fetching series data for ID: {series_id}")
@@ -124,6 +125,7 @@ def get_all_episodes_from_series(series_id: int) -> List[int]:
         response.raise_for_status()
 
         data = response.json()
+        series_name = data.get("data", {}).get("mainContent", {}).get("statsSeriesTitle", "").replace(".", "")
         episode_ids = []
 
         season_list = data.get("data", {}).get("seasonList", {})
@@ -148,11 +150,11 @@ def get_all_episodes_from_series(series_id: int) -> List[int]:
 
             logger.success(f"Total: {len(episode_ids)} episodes from all seasons")
 
-        return episode_ids
+        return series_name, episode_ids
 
     except RequestException as e:
         logger.error(f"Failed to get series data: {str(e)}")
-        return []
+        return None, []
     except (ValueError, KeyError) as e:
         logger.error(f"Failed to parse series data: {str(e)}")
-        return []
+        return None, []
