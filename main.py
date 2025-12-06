@@ -30,12 +30,19 @@ def main() -> None:
             series_name, episode_ids = get_all_episodes_from_series(video_id)
 
             if episode_ids:
-                logger.info(f"Starting download of {len(episode_ids)} episodes with {settings.MAX_WORKERS} workers")
-                with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
-                    futures = {executor.submit(run_download, ep_id, series_name): (i, ep_id) for i, ep_id in enumerate(episode_ids, 1)}
-                    for future in as_completed(futures):
-                        _, ep_id = futures[future]
-                        if not future.result():
+                if settings.USE_THREADING:
+                    logger.info(f"Starting download of {len(episode_ids)} episodes with {settings.MAX_WORKERS} workers")
+                    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+                        futures = {executor.submit(run_download, ep_id, series_name): (i, ep_id) for i, ep_id in enumerate(episode_ids, 1)}
+                        for future in as_completed(futures):
+                            _, ep_id = futures[future]
+                            if not future.result():
+                                logger.error(f"Failed to download episode {ep_id}")
+                else:
+                    logger.info(f"Starting download of {len(episode_ids)} episodes (sequential)")
+                    for i, ep_id in enumerate(episode_ids, 1):
+                        logger.info(f"Processing episode {i}/{len(episode_ids)}")
+                        if not run_download(ep_id, series_name):
                             logger.error(f"Failed to download episode {ep_id}")
             else:
                 logger.warning("No episodes found, trying single video...")

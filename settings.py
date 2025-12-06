@@ -7,6 +7,7 @@ TIMEOUT_MAX = 60
 CHUNK_SIZE = 1048576  # 1MB
 DOWNLOAD_ALL_EPISODES = True
 SKIP_EXISTING = True
+USE_THREADING = False
 MAX_WORKERS = os.cpu_count() or 4
 
 # TV shows to always check for new episodes
