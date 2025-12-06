@@ -1,10 +1,13 @@
 """Application settings as simple constants."""
 
+import os
+
 LOGGER_LEVEL = "INFO"
 TIMEOUT_MAX = 60
 CHUNK_SIZE = 1048576  # 1MB
 DOWNLOAD_ALL_EPISODES = True
 SKIP_EXISTING = True
+MAX_WORKERS = os.cpu_count() or 4
 
 # TV shows to always check for new episodes
 TV_SHOWS = [
