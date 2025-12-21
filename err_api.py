@@ -43,10 +43,10 @@ def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Op
         return None, None, None
 
 
-def download_mp4(heading: str, file_title: str, mp4_url: str, skip_existing: bool = True) -> bool:
+def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> bool:
     """Download MP4 file with progress bar."""
     try:
-        folder_path = os.path.join(settings.MEDIA_DIR, heading)
+        folder_path = os.path.join(settings.MEDIA_DIR, content_type, heading)
         os.makedirs(folder_path, exist_ok=True)
         file_path = os.path.join(folder_path, f"{file_title}.mp4")
 
@@ -80,7 +80,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, skip_existing: boo
         return False
 
 
-def run_download(video_content_id: int, series_name: Optional[str] = None) -> bool:
+def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> bool:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
         logger.error("Invalid video content ID")
@@ -89,7 +89,7 @@ def run_download(video_content_id: int, series_name: Optional[str] = None) -> bo
     folder_name, file_name, video_url = get_video_details(video_content_id)
     if all((folder_name, file_name, video_url)):
         final_folder = series_name if series_name else folder_name
-        return download_mp4(final_folder, file_name, video_url, settings.SKIP_EXISTING)  # type: ignore
+        return download_mp4(final_folder, file_name, video_url, content_type, settings.SKIP_EXISTING)  # type: ignore
 
     logger.error("Failed to get video details")
     return False
