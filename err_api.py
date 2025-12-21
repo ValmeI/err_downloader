@@ -46,9 +46,9 @@ def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Op
 def download_mp4(heading: str, file_title: str, mp4_url: str, skip_existing: bool = True) -> bool:
     """Download MP4 file with progress bar."""
     try:
-        folder_name = heading
-        os.makedirs(folder_name, exist_ok=True)
-        file_path = os.path.join(folder_name, f"{file_title}.mp4")
+        folder_path = os.path.join(settings.MEDIA_DIR, heading)
+        os.makedirs(folder_path, exist_ok=True)
+        file_path = os.path.join(folder_path, f"{file_title}.mp4")
 
         if skip_existing and os.path.exists(file_path):
             file_size = os.path.getsize(file_path)
