@@ -7,7 +7,7 @@ from requests.exceptions import RequestException
 from loguru import logger
 import shutil
 import settings
-from constants import DOWNLOAD_SUCCESS, DOWNLOAD_FAILED, DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED
+from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
 
@@ -91,7 +91,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
     """Download MP4 file with progress bar. Returns 'skipped' if file already exists."""
 
     try:
-        base_dir = settings.TV_SHOWS_DIR if content_type == "tv_shows" else settings.MOVIES_DIR
+        base_dir = settings.TV_SHOWS_DIR if content_type == CONTENT_TYPE_TV_SHOWS else settings.MOVIES_DIR
         final_folder_path = os.path.join(base_dir, heading)
         final_file_path = os.path.join(final_folder_path, f"{file_title}.mp4")
 
@@ -130,33 +130,33 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
             shutil.move(download_path, final_file_path)
 
         logger.success(f"Download completed: {file_title}")
-        return DOWNLOAD_SUCCESS
+        return True
 
     except RequestException as e:
         logger.error(f"Download failed - Network error: {str(e)}")
-        return DOWNLOAD_FAILED
+        return False
     except IOError as e:
         logger.error(f"Download failed - File error: {str(e)}")
-        return DOWNLOAD_FAILED
+        return False
 
 
 def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> bool | str:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
         logger.error("Invalid video content ID")
-        return DOWNLOAD_FAILED
+        return False
 
     folder_name, file_name, video_url = get_video_details(video_content_id)
-    
+
     if folder_name == DOWNLOAD_DRM_PROTECTED:
         return DOWNLOAD_DRM_PROTECTED
-    
+
     if all((folder_name, file_name, video_url)):
         final_folder = series_name if series_name else folder_name
         return download_mp4(final_folder, file_name, video_url, content_type, settings.SKIP_EXISTING)  # type: ignore
 
     logger.error(f"Failed to get video details for ID: {video_content_id}")
-    return DOWNLOAD_FAILED
+    return False
 
 
 def extract_video_id(url: str) -> Optional[int]:

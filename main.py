@@ -1,13 +1,17 @@
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from loguru import logger
 
 import settings
 from logger import init_logging
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
-from constants import DOWNLOAD_SUCCESS, DOWNLOAD_FAILED, DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED
+from constants import (
+    DOWNLOAD_SKIPPED,
+    DOWNLOAD_DRM_PROTECTED,
+    CONTENT_TYPE_TV_SHOWS,
+    CONTENT_TYPE_MOVIES,
+)
 
 
 def update_stats(stats: Dict[str, int], result: bool | str) -> None:
@@ -17,13 +21,13 @@ def update_stats(stats: Dict[str, int], result: bool | str) -> None:
         stats["drm_protected"] += 1
     elif result == DOWNLOAD_SKIPPED:
         stats["skipped"] += 1
-    elif result == DOWNLOAD_SUCCESS:
+    elif result == True:
         stats["successful"] += 1
     else:
         stats["failed"] += 1
 
 
-def download_episodes_threaded(episode_ids: List[int], content_type: str, series_name: str, stats: Dict[str, int]) -> None:
+def download_episodes_threaded(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict[str, int]) -> None:
     """Download episodes using ThreadPoolExecutor."""
     logger.info(f"Starting download of {len(episode_ids)} episodes with {settings.MAX_WORKERS} workers")
     with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
@@ -36,7 +40,7 @@ def download_episodes_threaded(episode_ids: List[int], content_type: str, series
                 logger.error(f"Failed to download episode {ep_id}")
 
 
-def download_episodes_sequential(episode_ids: List[int], content_type: str, series_name: str, stats: Dict[str, int]) -> None:
+def download_episodes_sequential(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict[str, int]) -> None:
     """Download episodes sequentially."""
     logger.info(f"Starting download of {len(episode_ids)} episodes (sequential)")
     for i, ep_id in enumerate(episode_ids, 1):
@@ -119,7 +123,7 @@ def main() -> None:
     stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0}
 
     for url in all_urls:
-        content_type = "tv_shows" if url in settings.TV_SHOWS else "movies"
+        content_type = CONTENT_TYPE_TV_SHOWS if url in settings.TV_SHOWS else CONTENT_TYPE_MOVIES
         process_url(url, content_type, stats)
 
     print_summary(stats)
