@@ -13,41 +13,71 @@ API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?con
 session = requests.Session()
 
 
-def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """Fetch video details from ERR API."""
+def is_drm_protected(media_data: dict) -> bool:
+    """Check if media is DRM protected."""
+    restrictions = media_data.get("restrictions", {})
+    return restrictions.get("drm", False)
+
+
+def fetch_video_api_data(content_id: int) -> Optional[dict]:
+    """Fetch raw video data from ERR API."""
     try:
         url = API_BASE_URL.format(content_id)
         logger.info(f"Fetching video details for content_id: {content_id}")
-
+        
         response = session.get(url, timeout=settings.TIMEOUT_MAX)
         response.raise_for_status()
-
-        data = response.json()
-        folder_name = data["data"]["mainContent"]["heading"].replace(".", "")
-        title_with_season_episode_year = f"{data['data']['mainContent']['statsHeading']} {data['data']['mainContent']['year']}"
-
-        try:
-            mp4_url = "https:" + data["data"]["mainContent"]["medias"][0]["src"]["file"].replace("\\", "")
-            logger.info(f"Video details: {title_with_season_episode_year}")
-            logger.info(f"MP4 URL: {mp4_url}")
-            return folder_name, title_with_season_episode_year, mp4_url
-        except (IndexError, KeyError) as e:
-            logger.error(f"Failed to extract media URL: {str(e)}")
-            return None, None, None
-
+        
+        return response.json()
     except RequestException as e:
         logger.error(f"Network error: {str(e)}")
-        return None, None, None
+        return None
     except ValueError as e:
         logger.error(f"Invalid JSON response: {str(e)}")
+        return None
+
+
+def parse_video_details(data: dict, content_id: int) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Parse video details from API response."""
+    try:
+        main_content = data.get("data", {}).get("mainContent", {})
+        medias = main_content.get("medias", [])
+        
+        if not medias:
+            logger.error("No media found in response")
+            return None, None, None
+        
+        if is_drm_protected(medias[0]):
+            logger.warning(f"Video on DRM-kaitstud ja seda ei saa alla laadida: {content_id}")
+            logger.warning(f"Vaata videot ERR veebilehel: https://jupiter.err.ee/{content_id}")
+            return None, None, None
+        
+        folder_name = main_content.get("heading", "").replace(".", "")
+        title_with_season_episode_year = f"{main_content.get('statsHeading', '')} {main_content.get('year', '')}"
+        mp4_url = "https:" + medias[0]["src"]["file"].replace("\\", "")
+        
+        logger.info(f"Video details: {title_with_season_episode_year}")
+        logger.info(f"MP4 URL: {mp4_url}")
+        
+        return folder_name, title_with_season_episode_year, mp4_url
+    except (IndexError, KeyError) as e:
+        logger.error(f"Failed to extract media URL: {str(e)}")
         return None, None, None
+
+
+def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Fetch and parse video details from ERR API."""
+    data = fetch_video_api_data(content_id)
+    if not data:
+        return None, None, None
+    
+    return parse_video_details(data, content_id)
 
 
 def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> bool:
     """Download MP4 file with progress bar."""
     try:
         folder_path = os.path.join(settings.MEDIA_DIR, content_type, heading)
-        os.makedirs(folder_path, exist_ok=True)
         file_path = os.path.join(folder_path, f"{file_title}.mp4")
 
         if skip_existing and os.path.exists(file_path):
@@ -60,6 +90,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
         logger.info(f"Starting download: {file_title}")
         response = requests.get(mp4_url, stream=True, timeout=settings.TIMEOUT_MAX)
         response.raise_for_status()
+        os.makedirs(folder_path, exist_ok=True)
 
         total = int(response.headers.get("content-length", 0))
         with open(file_path, "wb") as file:

@@ -12,7 +12,20 @@ def main() -> None:
     """Main entry point for the ERR downloader."""
     init_logging(settings.LOGGER_LEVEL)
 
-    ERR_MOVIE_URLS = ["https://lasteekraan.err.ee/1609851079/musteerium-veisemae-kiirrongil"]
+    ERR_MOVIE_URLS = ["https://lasteekraan.err.ee/1609882991/kiri-jouluvanale",
+                      "https://lasteekraan.err.ee/1609883591/nassu",
+                      "https://lasteekraan.err.ee/1609882928/loomade-joululood",
+                      "https://lasteekraan.err.ee/1609883009/jouluvana-joulupuhkus",
+                      "https://lasteekraan.err.ee/1609535498/pakapikkudega-kodus",
+                      "https://lasteekraan.err.ee/1203292/oksa-onu",
+                      "https://lasteekraan.err.ee/1609549379/arthur-paastab-joulud",
+                      "https://lasteekraan.err.ee/1609194620/mutiharra-mutik-kuninglikel-pidustustel",
+                      "https://lasteekraan.err.ee/1609549457/kiisu-mcmiisu",
+                      "https://lasteekraan.err.ee/1609877765/miisu-joulud",
+                      "https://lasteekraan.err.ee/1609188260/terry-pratchetti-joululugu-lumetitt",
+                      "https://lasteekraan.err.ee/1608431150/turbode-joulud-pohjanabal",
+                      "https://lasteekraan.err.ee/1609870333/muksikud"
+                      ]
 
     all_urls = settings.TV_SHOWS + ERR_MOVIE_URLS
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.TV_SHOWS)}, Movies: {len(ERR_MOVIE_URLS)})")
@@ -49,11 +62,13 @@ def main() -> None:
             else:
                 logger.warning("No episodes found, trying single video...")
                 if not run_download(video_id, content_type=content_type):
-                    sys.exit(1)
+                    logger.error(f"Failed to download video from {err_url}, continuing with next URL...")
+                    continue
         else:
             logger.info("Downloading single video")
             if not run_download(video_id, content_type=content_type):
-                sys.exit(1)
+                logger.error(f"Failed to download video from {err_url}, continuing with next URL...")
+                continue
 
     logger.success("All downloads completed!")
 
