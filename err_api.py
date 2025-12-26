@@ -5,8 +5,9 @@ import requests
 from tqdm import tqdm
 from requests.exceptions import RequestException
 from loguru import logger
-
+import shutil
 import settings
+from constants import DOWNLOAD_SUCCESS, DOWNLOAD_FAILED, DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
 
@@ -24,10 +25,10 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
     try:
         url = API_BASE_URL.format(content_id)
         logger.info(f"Fetching video details for content_id: {content_id}")
-        
+
         response = session.get(url, timeout=settings.TIMEOUT_MAX)
         response.raise_for_status()
-        
+
         return response.json()
     except RequestException as e:
         logger.error(f"Network error: {str(e)}")
@@ -42,23 +43,24 @@ def parse_video_details(data: dict, content_id: int) -> Tuple[Optional[str], Opt
     try:
         main_content = data.get("data", {}).get("mainContent", {})
         medias = main_content.get("medias", [])
-        
+
         if not medias:
             logger.error("No media found in response")
             return None, None, None
-        
+
         if is_drm_protected(medias[0]):
-            logger.warning(f"Video on DRM-kaitstud ja seda ei saa alla laadida: {content_id}")
+            heading = main_content.get("heading", "Unknown")
+            logger.warning(f"Video on DRM-kaitstud ja seda ei saa alla laadida: {heading} (ID: {content_id})")
             logger.warning(f"Vaata videot ERR veebilehel: https://jupiter.err.ee/{content_id}")
-            return None, None, None
-        
+            return DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED
+
         folder_name = main_content.get("heading", "").replace(".", "")
         title_with_season_episode_year = f"{main_content.get('statsHeading', '')} {main_content.get('year', '')}"
         mp4_url = "https:" + medias[0]["src"]["file"].replace("\\", "")
-        
+
         logger.info(f"Video details: {title_with_season_episode_year}")
         logger.info(f"MP4 URL: {mp4_url}")
-        
+
         return folder_name, title_with_season_episode_year, mp4_url
     except (IndexError, KeyError) as e:
         logger.error(f"Failed to extract media URL: {str(e)}")
@@ -70,60 +72,91 @@ def get_video_details(content_id: int) -> Tuple[Optional[str], Optional[str], Op
     data = fetch_video_api_data(content_id)
     if not data:
         return None, None, None
-    
+
     return parse_video_details(data, content_id)
 
 
-def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> bool:
-    """Download MP4 file with progress bar."""
-    try:
-        folder_path = os.path.join(settings.MEDIA_DIR, content_type, heading)
-        file_path = os.path.join(folder_path, f"{file_title}.mp4")
+def check_file_exists(file_path: str, file_title: str, location: str) -> bool:
+    """Check if file exists and log if skipping."""
+    if os.path.exists(file_path):
+        file_size = os.path.getsize(file_path)
+        if file_size > 0:
+            file_size_mb = file_size / (1024 * 1024)
+            logger.info(f"File already exists in {location}, skipping: {file_title} ({file_size_mb:.2f} MB)")
+            return True
+    return False
 
-        if skip_existing and os.path.exists(file_path):
-            file_size = os.path.getsize(file_path)
-            if file_size > 0:
-                file_size_mb = file_size / (1024 * 1024)
-                logger.info(f"File already exists, skipping: {file_title} ({file_size_mb:.2f} MB)")
-                return True
+
+def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> bool | str:
+    """Download MP4 file with progress bar. Returns 'skipped' if file already exists."""
+
+    try:
+        base_dir = settings.TV_SHOWS_DIR if content_type == "tv_shows" else settings.MOVIES_DIR
+        final_folder_path = os.path.join(base_dir, heading)
+        final_file_path = os.path.join(final_folder_path, f"{file_title}.mp4")
+
+        if skip_existing and check_file_exists(final_file_path, file_title, "NAS"):
+            return DOWNLOAD_SKIPPED
+
+        if not settings.DOWNLOAD_TO_NAS_DIRECTLY:
+            temp_folder = os.path.join(settings.LOCAL_TEMP_DIR, heading)
+            temp_file_path = os.path.join(temp_folder, f"{file_title}.mp4")
+            if skip_existing and check_file_exists(temp_file_path, file_title, "temp"):
+                return DOWNLOAD_SKIPPED
 
         logger.info(f"Starting download: {file_title}")
         response = requests.get(mp4_url, stream=True, timeout=settings.TIMEOUT_MAX)
         response.raise_for_status()
-        os.makedirs(folder_path, exist_ok=True)
+
+        if settings.DOWNLOAD_TO_NAS_DIRECTLY:
+            download_path = final_file_path
+            os.makedirs(final_folder_path, exist_ok=True)
+        else:
+            temp_folder = os.path.join(settings.LOCAL_TEMP_DIR, heading)
+            os.makedirs(temp_folder, exist_ok=True)
+            download_path = os.path.join(temp_folder, f"{file_title}.mp4")
 
         total = int(response.headers.get("content-length", 0))
-        with open(file_path, "wb") as file:
+        with open(download_path, "wb") as file:
             with tqdm(total=total, unit="B", unit_scale=True, desc=file_title) as pbar:
                 for chunk in response.iter_content(chunk_size=settings.CHUNK_SIZE):
                     if chunk:
                         file.write(chunk)
                         pbar.update(len(chunk))
 
+        if not settings.DOWNLOAD_TO_NAS_DIRECTLY:
+            logger.info(f"Moving file to NAS: {file_title}")
+            os.makedirs(final_folder_path, exist_ok=True)
+            shutil.move(download_path, final_file_path)
+
         logger.success(f"Download completed: {file_title}")
-        return True
+        return DOWNLOAD_SUCCESS
 
     except RequestException as e:
         logger.error(f"Download failed - Network error: {str(e)}")
-        return False
+        return DOWNLOAD_FAILED
     except IOError as e:
         logger.error(f"Download failed - File error: {str(e)}")
-        return False
+        return DOWNLOAD_FAILED
 
 
-def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> bool:
+def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> bool | str:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
         logger.error("Invalid video content ID")
-        return False
+        return DOWNLOAD_FAILED
 
     folder_name, file_name, video_url = get_video_details(video_content_id)
+    
+    if folder_name == DOWNLOAD_DRM_PROTECTED:
+        return DOWNLOAD_DRM_PROTECTED
+    
     if all((folder_name, file_name, video_url)):
         final_folder = series_name if series_name else folder_name
         return download_mp4(final_folder, file_name, video_url, content_type, settings.SKIP_EXISTING)  # type: ignore
 
-    logger.error("Failed to get video details")
-    return False
+    logger.error(f"Failed to get video details for ID: {video_content_id}")
+    return DOWNLOAD_FAILED
 
 
 def extract_video_id(url: str) -> Optional[int]:

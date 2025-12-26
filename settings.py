@@ -7,9 +7,15 @@ TIMEOUT_MAX = 60
 CHUNK_SIZE = 1048576  # 1MB
 DOWNLOAD_ALL_EPISODES = True
 SKIP_EXISTING = True
-USE_THREADING = False
+USE_THREADING = True
 MAX_WORKERS = os.cpu_count() or 4
-MEDIA_DIR = "media"
+
+# Download directly to NAS (slower over WiFi) or to local temp dir first
+LOCAL_TEMP_DIR = os.path.expanduser("~/Downloads/err_temp")
+
+DOWNLOAD_TO_NAS_DIRECTLY = True
+TV_SHOWS_DIR = "/Volumes/NAS_Files/Downloads/Lastele TV Shows"
+MOVIES_DIR = "/Volumes/NAS_Files/Downloads/Lastele"
 
 # TV shows to always check for new episodes
 TV_SHOWS = [
