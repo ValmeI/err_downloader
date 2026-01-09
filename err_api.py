@@ -7,7 +7,7 @@ from requests.exceptions import RequestException
 from loguru import logger
 import shutil
 import settings
-from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES
+from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES, CONTENT_NOT_FOUND_404
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
 
@@ -30,6 +30,12 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
         response.raise_for_status()
 
         return response.json()
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            logger.warning(f"Sisu ei ole enam saadaval ERRis (404) - ID: {content_id}. Sisu on tõenäoliselt ERRist eemaldatud või arhiveeritud.")
+        else:
+            logger.error(f"HTTP error {e.response.status_code}: {str(e)}")
+        return None
     except RequestException as e:
         logger.error(f"Network error: {str(e)}")
         return None
@@ -74,7 +80,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
         if is_drm_protected(medias[0]):
             heading = main_content.get("heading", "Unknown")
             logger.warning(f"Video on DRM-kaitstud ja seda ei saa alla laadida: {heading} (ID: {content_id})")
-            logger.warning(f"Vaata videot ERR veebilehel: https://jupiter.err.ee/{content_id}")
+            logger.warning(f"Vaata videot {heading} ERR veebilehel: https://jupiter.err.ee/{content_id}")
             return DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED
 
         folder_name = main_content.get("heading", "").replace(".", "")
@@ -248,6 +254,13 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
 
         return series_name, episode_ids
 
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            logger.warning(f"Sarja ei ole enam saadaval ERRis ({CONTENT_NOT_FOUND_404}) - ID: {series_id}. Sari {url} on tõenäoliselt ERRist eemaldatud või arhiveeritud.")
+            return CONTENT_NOT_FOUND_404, []
+        else:
+            logger.error(f"Failed to get series data: HTTP error {e.response.status_code}: {str(e)}")
+        return None, []
     except RequestException as e:
         logger.error(f"Failed to get series data: {str(e)}")
         return None, []

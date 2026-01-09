@@ -11,6 +11,7 @@ from constants import (
     DOWNLOAD_DRM_PROTECTED,
     CONTENT_TYPE_TV_SHOWS,
     CONTENT_TYPE_MOVIES,
+    CONTENT_NOT_FOUND_404,
 )
 
 
@@ -77,6 +78,10 @@ def process_url(url: str, content_type: str, stats: Dict) -> None:
                 download_episodes_threaded(episode_ids, content_type, series_name, stats)
             else:
                 download_episodes_sequential(episode_ids, content_type, series_name, stats)
+        elif series_name == CONTENT_NOT_FOUND_404:
+            logger.warning(f"Sisu on ERRist eemaldatud ({CONTENT_NOT_FOUND_404}), vahele jäetud: {url}")
+            stats["failed"] += 1
+            stats["failed_list"].append(f"URL: {url} (sisu eemaldatud ERRist)")
         else:
             title_info = f" '{series_name}'" if series_name else ""
             logger.warning(f"No episodes found for{title_info} {url} (ID: {video_id}), trying single video...")
