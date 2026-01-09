@@ -15,7 +15,7 @@ from constants import (
 )
 
 
-def update_stats(stats: Dict, result: bool | str, video_info: str = "") -> None:
+def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
     """Update statistics based on download result."""
     stats["total_processed"] += 1
     if result == DOWNLOAD_DRM_PROTECTED:
@@ -24,7 +24,7 @@ def update_stats(stats: Dict, result: bool | str, video_info: str = "") -> None:
             stats["drm_protected_list"].append(video_info)
     elif result == DOWNLOAD_SKIPPED:
         stats["skipped"] += 1
-    elif result == True:
+    elif result is True:
         stats["successful"] += 1
     else:
         stats["failed"] += 1

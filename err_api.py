@@ -160,7 +160,7 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
         return False
 
 
-def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> bool | str:
+def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> str | bool:
     """Download MP4 file. Returns True on success, 'skipped' if file exists, False on failure."""
     final_folder_path, final_file_path = get_file_paths(heading, file_title, content_type)
     
@@ -178,7 +178,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
     return True
 
 
-def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> bool | str:
+def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> str | bool:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
         logger.error("Invalid video content ID")
