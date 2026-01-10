@@ -2,16 +2,21 @@ import re
 import os
 from typing import Optional, Tuple, List
 import requests
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from requests.exceptions import RequestException
 from loguru import logger
-import shutil
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import settings
-from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES, CONTENT_NOT_FOUND_404
+from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_NOT_FOUND_404
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
 
 session = requests.Session()
+session.headers.update({"Connection": "keep-alive", "Accept-Encoding": "gzip, deflate"})
+adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10, max_retries=0)
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 
 
 def is_drm_protected(media_data: dict) -> bool:
@@ -46,15 +51,15 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
 
 def build_file_title(main_content: dict, content_type: str) -> str:
     """Build file title with season/episode for TV shows or statsHeading for movies."""
-    year = main_content.get('year', '')
-    
+    year = main_content.get("year", "")
+
     if content_type == CONTENT_TYPE_TV_SHOWS:
-        season = main_content.get('season')
-        episode = main_content.get('episode')
-        
+        season = main_content.get("season")
+        episode = main_content.get("episode")
+
         if season is not None and episode is not None and season > 0 and episode > 0:
             return f"S{season:02d}E{episode:02d} {year}".strip()
-    
+
     return f"{main_content.get('statsHeading', '')} {year}".strip()
 
 
@@ -86,7 +91,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
         folder_name = main_content.get("heading", "").replace(".", "")
         file_title = build_file_title(main_content, content_type)
         mp4_url = extract_mp4_url(medias)
-        
+
         if not mp4_url:
             return None, None, None
 
@@ -115,7 +120,7 @@ def get_file_paths(heading: str, file_title: str, content_type: str) -> Tuple[st
     base_dir = settings.TV_SHOWS_DIR if content_type == CONTENT_TYPE_TV_SHOWS else settings.MOVIES_DIR
     final_folder_path = os.path.join(base_dir, heading)
     final_file_path = os.path.join(final_folder_path, f"{file_title}.mp4")
-    
+
     return final_folder_path, final_file_path
 
 
@@ -134,16 +139,21 @@ def should_skip_download(final_file_path: str, file_title: str, heading: str, sk
     """Check if download should be skipped because file already exists."""
     if not skip_existing:
         return False
-    
+
     return check_file_exists(final_file_path, file_title, heading)
 
 
+@retry(
+    stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
+    wait=wait_exponential(multiplier=settings.RETRY_WAIT_MULTIPLIER, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
+    retry=retry_if_exception_type((RequestException, IOError))
+)
 def download_file_with_progress(url: str, file_path: str, file_title: str) -> bool:
     """Download file from URL with progress bar."""
     try:
         response = requests.get(url, stream=True, timeout=settings.TIMEOUT_MAX)
         response.raise_for_status()
-        
+
         total = int(response.headers.get("content-length", 0))
         with open(file_path, "wb") as file:
             with tqdm(total=total, unit="B", unit_scale=True, desc=file_title) as pbar:
@@ -154,28 +164,29 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
         return True
     except RequestException as e:
         logger.error(f"Download failed - Network error: {str(e)}")
-        return False
+        raise
     except IOError as e:
         logger.error(f"Download failed - File error: {str(e)}")
-        return False
+        raise
 
 
 def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> str | bool:
     """Download MP4 file. Returns True on success, 'skipped' if file exists, False on failure."""
     final_folder_path, final_file_path = get_file_paths(heading, file_title, content_type)
-    
+
     if should_skip_download(final_file_path, file_title, heading, skip_existing):
         return DOWNLOAD_SKIPPED
-    
+
     logger.info(f"Starting download: [{heading}] {file_title}")
-    
+
     os.makedirs(final_folder_path, exist_ok=True)
-    
-    if not download_file_with_progress(mp4_url, final_file_path, file_title):
+
+    try:
+        download_file_with_progress(mp4_url, final_file_path, file_title)
+        logger.success(f"Download completed: [{heading}] {file_title}")
+        return True
+    except Exception:
         return False
-    
-    logger.success(f"Download completed: [{heading}] {file_title}")
-    return True
 
 
 def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> str | bool:
@@ -256,7 +267,9 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
 
     except requests.HTTPError as e:
         if e.response.status_code == 404:
-            logger.warning(f"Sarja ei ole enam saadaval ERRis ({CONTENT_NOT_FOUND_404}) - ID: {series_id}. Sari {url} on tõenäoliselt ERRist eemaldatud või arhiveeritud.")
+            logger.warning(
+                f"Sarja ei ole enam saadaval ERRis ({CONTENT_NOT_FOUND_404}) - ID: {series_id}. Sari {url} on tõenäoliselt ERRist eemaldatud või arhiveeritud."
+            )
             return CONTENT_NOT_FOUND_404, []
         else:
             logger.error(f"Failed to get series data: HTTP error {e.response.status_code}: {str(e)}")

@@ -6,13 +6,7 @@ from loguru import logger
 import settings
 from logger import init_logging
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
-from constants import (
-    DOWNLOAD_SKIPPED,
-    DOWNLOAD_DRM_PROTECTED,
-    CONTENT_TYPE_TV_SHOWS,
-    CONTENT_TYPE_MOVIES,
-    CONTENT_NOT_FOUND_404,
-)
+from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES, CONTENT_NOT_FOUND_404
 
 
 def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
@@ -61,7 +55,7 @@ def download_episodes_sequential(episode_ids: List[int], content_type: str, seri
 def process_url(url: str, content_type: str, stats: Dict) -> None:
     """Process a single URL for download."""
     logger.info(f"Processing URL: {url}")
-    
+
     video_id = extract_video_id(url)
     if not video_id:
         logger.error("Failed to extract video ID")
@@ -107,19 +101,19 @@ def print_summary(stats: Dict) -> None:
     logger.info(f"Kokku töödeldud: {stats['total_processed']} videot")
     logger.info(f"Alla laaditud: {stats['successful']}")
     logger.info(f"Juba olemas (vahele jäetud): {stats['skipped']}")
-    
-    if stats['drm_protected_list']:
+
+    if stats["drm_protected_list"]:
         logger.info("")
         logger.info(f"DRM-kaitstud (vahele jäetud): {stats['drm_protected']}")
-        for video in stats['drm_protected_list']:
+        for video in stats["drm_protected_list"]:
             logger.info(f"  - {video}")
-    
-    if stats['failed_list']:
+
+    if stats["failed_list"]:
         logger.info("")
         logger.info(f"Ebaõnnestunud: {stats['failed']}")
-        for video in stats['failed_list']:
+        for video in stats["failed_list"]:
             logger.info(f"  - {video}")
-    
+
     logger.info("=" * 60)
 
 
@@ -136,15 +130,7 @@ def main() -> None:
     all_urls = settings.TV_SHOWS + ERR_MOVIE_URLS
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.TV_SHOWS)}, Movies: {len(ERR_MOVIE_URLS)})")
 
-    stats = {
-        "total_processed": 0,
-        "successful": 0,
-        "skipped": 0,
-        "failed": 0,
-        "drm_protected": 0,
-        "drm_protected_list": [],
-        "failed_list": [],
-    }
+    stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0, "drm_protected_list": [], "failed_list": []}
 
     for url in all_urls:
         content_type = CONTENT_TYPE_TV_SHOWS if url in settings.TV_SHOWS else CONTENT_TYPE_MOVIES
