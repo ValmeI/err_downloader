@@ -7,8 +7,7 @@ from tqdm import tqdm
 from requests.exceptions import RequestException
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-import settings
-from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_NOT_FOUND_404
+from settings import settings
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
 
@@ -31,7 +30,7 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
         url = API_BASE_URL.format(content_id)
         logger.info(f"Fetching video details for content_id: {content_id}")
 
-        response = session.get(url, timeout=settings.TIMEOUT_MAX)
+        response = session.get(url, timeout=settings.download.timeout_max)
         response.raise_for_status()
 
         return response.json()
@@ -53,7 +52,7 @@ def build_file_title(main_content: dict, content_type: str) -> str:
     """Build file title with season/episode for TV shows or statsHeading for movies."""
     year = main_content.get("year", "")
 
-    if content_type == CONTENT_TYPE_TV_SHOWS:
+    if content_type == settings.constants.content_type_tv_shows:
         season = main_content.get("season")
         episode = main_content.get("episode")
 
@@ -86,7 +85,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
             heading = main_content.get("heading", "Unknown")
             logger.warning(f"Video on DRM-kaitstud ja seda ei saa alla laadida: {heading} (ID: {content_id})")
             logger.warning(f"Vaata videot {heading} ERR veebilehel: https://jupiter.err.ee/{content_id}")
-            return DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED, DOWNLOAD_DRM_PROTECTED
+            return settings.constants.drm_protected, settings.constants.drm_protected, settings.constants.drm_protected
 
         folder_name = main_content.get("heading", "").replace(".", "")
         file_title = build_file_title(main_content, content_type)
@@ -117,7 +116,7 @@ def get_file_paths(heading: str, file_title: str, content_type: str) -> Tuple[st
     """Calculate file paths for final location.
     Returns: (final_folder_path, final_file_path)
     """
-    base_dir = settings.TV_SHOWS_DIR if content_type == CONTENT_TYPE_TV_SHOWS else settings.MOVIES_DIR
+    base_dir = settings.directories.tv_shows if content_type == settings.constants.content_type_tv_shows else settings.directories.movies
     final_folder_path = os.path.join(base_dir, heading)
     final_file_path = os.path.join(final_folder_path, f"{file_title}.mp4")
 
@@ -144,20 +143,20 @@ def should_skip_download(final_file_path: str, file_title: str, heading: str, sk
 
 
 @retry(
-    stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
-    wait=wait_exponential(multiplier=settings.RETRY_WAIT_MULTIPLIER, min=settings.RETRY_WAIT_MIN, max=settings.RETRY_WAIT_MAX),
+    stop=stop_after_attempt(settings.retry.max_attempts),
+    wait=wait_exponential(multiplier=settings.retry.wait_multiplier, min=settings.retry.wait_min, max=settings.retry.wait_max),
     retry=retry_if_exception_type((RequestException, IOError))
 )
 def download_file_with_progress(url: str, file_path: str, file_title: str) -> bool:
     """Download file from URL with progress bar."""
     try:
-        response = requests.get(url, stream=True, timeout=settings.TIMEOUT_MAX)
+        response = requests.get(url, stream=True, timeout=settings.download.timeout_max)
         response.raise_for_status()
 
         total = int(response.headers.get("content-length", 0))
         with open(file_path, "wb") as file:
             with tqdm(total=total, unit="B", unit_scale=True, desc=file_title) as pbar:
-                for chunk in response.iter_content(chunk_size=settings.CHUNK_SIZE):
+                for chunk in response.iter_content(chunk_size=settings.download.chunk_size):
                     if chunk:
                         file.write(chunk)
                         pbar.update(len(chunk))
@@ -175,7 +174,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
     final_folder_path, final_file_path = get_file_paths(heading, file_title, content_type)
 
     if should_skip_download(final_file_path, file_title, heading, skip_existing):
-        return DOWNLOAD_SKIPPED
+        return settings.constants.download_skipped
 
     logger.info(f"Starting download: [{heading}] {file_title}")
 
@@ -197,12 +196,12 @@ def run_download(video_content_id: int, content_type: str, series_name: Optional
 
     folder_name, file_name, video_url = get_video_details(video_content_id, content_type)
 
-    if folder_name == DOWNLOAD_DRM_PROTECTED:
-        return DOWNLOAD_DRM_PROTECTED
+    if folder_name == settings.constants.drm_protected:
+        return settings.constants.drm_protected
 
     if all((folder_name, file_name, video_url)):
         final_folder = series_name if series_name else folder_name
-        return download_mp4(final_folder, file_name, video_url, content_type, settings.SKIP_EXISTING)  # type: ignore
+        return download_mp4(final_folder, file_name, video_url, content_type, settings.download.skip_existing)  # type: ignore
 
     logger.error(f"Failed to get video details for ID: {video_content_id}")
     return False
@@ -234,7 +233,7 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
         url = API_BASE_URL.format(series_id)
         logger.info(f"Fetching series data for ID: {series_id}")
 
-        response = session.get(url, timeout=settings.TIMEOUT_MAX)
+        response = session.get(url, timeout=settings.download.timeout_max)
         response.raise_for_status()
 
         data = response.json()
@@ -268,9 +267,9 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
     except requests.HTTPError as e:
         if e.response.status_code == 404:
             logger.warning(
-                f"Sarja ei ole enam saadaval ERRis ({CONTENT_NOT_FOUND_404}) - ID: {series_id}. Sari {url} on tõenäoliselt ERRist eemaldatud või arhiveeritud."
+                f"Sarja ei ole enam saadaval ERRis ({settings.constants.content_not_found_404}) - ID: {series_id}. Sari {url} on tõenäoliselt ERRist eemaldatud või arhiveeritud."
             )
-            return CONTENT_NOT_FOUND_404, []
+            return settings.constants.content_not_found_404, []
         else:
             logger.error(f"Failed to get series data: HTTP error {e.response.status_code}: {str(e)}")
         return None, []

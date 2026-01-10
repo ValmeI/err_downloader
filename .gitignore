@@ -126,3 +126,6 @@ dmypy.json
 cython_debug/
 
 .DS_Store
+
+# User config file (keep example only)
+config.yaml

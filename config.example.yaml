@@ -1,0 +1,51 @@
+# ERR Downloader Configuration Example
+# Copy this file to config.yaml and adjust the settings to your needs
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+logger_level: INFO
+
+# Download settings
+download:
+  timeout_max: 60
+  chunk_size: 1048576  # 1MB in bytes
+  download_all_episodes: true
+  skip_existing: true
+
+# Threading settings
+threading:
+  use_threading: false
+  max_workers: 4  # Number of concurrent downloads (set to null for auto-detection based on CPU cores)
+
+# Retry settings for failed downloads
+retry:
+  max_attempts: 3
+  wait_min: 5  # Minimum wait time in seconds
+  wait_max: 30  # Maximum wait time in seconds
+  wait_multiplier: 1  # Multiplier for exponential backoff
+
+# Download directories
+directories:
+  tv_shows: /path/to/tv/shows/directory
+  movies: /path/to/movies/directory
+
+# Application constants (do not change unless you know what you're doing)
+constants:
+  download_skipped: skipped
+  drm_protected: drm_protected
+  content_not_found_404: not_found_404
+  content_type_tv_shows: tv_shows
+  content_type_movies: movies
+
+# TV shows to always check for new episodes
+# Add ERR lasteekraan.err.ee URLs for TV series you want to monitor
+tv_shows:
+  - https://lasteekraan.err.ee/XXXXXXX/your-tv-show-1
+  - https://lasteekraan.err.ee/XXXXXXX/your-tv-show-2
+  # Add more TV show URLs here
+
+# Movies to download
+# Add ERR lasteekraan.err.ee URLs for movies you want to download
+movies:
+  - https://lasteekraan.err.ee/XXXXXXX/your-movie-1
+  - https://lasteekraan.err.ee/XXXXXXX/your-movie-2
+  # Add more movie URLs here

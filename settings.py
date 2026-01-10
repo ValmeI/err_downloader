@@ -1,33 +1,94 @@
-"""Application settings as simple constants."""
+"""Application settings using pydantic-settings."""
 
 import os
+from pathlib import Path
+from typing import List, Optional
 
-LOGGER_LEVEL = "INFO"
-TIMEOUT_MAX = 60
-CHUNK_SIZE = 1048576  # 1MB
-DOWNLOAD_ALL_EPISODES = True
-SKIP_EXISTING = True
-USE_THREADING = False
-MAX_WORKERS = os.cpu_count() or 4
+import yaml
+from pydantic import BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-RETRY_MAX_ATTEMPTS = 3
-RETRY_WAIT_MIN = 5
-RETRY_WAIT_MAX = 30
-RETRY_WAIT_MULTIPLIER = 1
 
-TV_SHOWS_DIR = "/Volumes/NAS_Files/Downloads/Lastele TV Shows"
-MOVIES_DIR = "/Volumes/NAS_Files/Downloads/Lastele"
+class DownloadSettings(BaseModel):
+    """Download-related settings."""
 
-# TV shows to always check for new episodes
-TV_SHOWS = [
-    "https://lasteekraan.err.ee/1609890665/mystery-lane-i-ponevad-juhtumid",
-    "https://lasteekraan.err.ee/1608695959/lepatriinu-ja-musta-kassi-imelised-lood",
-    "https://lasteekraan.err.ee/1039236/must-ja-valge-koer",
-    "https://lasteekraan.err.ee/1608967400/peeter-pikk-korv",
-    "https://lasteekraan.err.ee/1608940043/pips-ja-popi",
-    "https://lasteekraan.err.ee/1608776887/vilda",
-    "https://lasteekraan.err.ee/1038651/karu-karla",
-    "https://lasteekraan.err.ee/1127112/ninjakunstnik",
-    "https://lasteekraan.err.ee/1608551665/tuta-asjad",
-    "https://lasteekraan.err.ee/1038778/porsas-peppa",
-]
+    timeout_max: int
+    chunk_size: int
+    download_all_episodes: bool
+    skip_existing: bool
+
+
+class ThreadingSettings(BaseModel):
+    """Threading-related settings."""
+
+    use_threading: bool
+    max_workers: Optional[int]
+
+    def get_max_workers(self) -> int:
+        """Get max workers, auto-detecting if not set."""
+        return self.max_workers if self.max_workers is not None else (os.cpu_count() or 4)
+
+
+class RetrySettings(BaseModel):
+    """Retry-related settings."""
+
+    max_attempts: int
+    wait_min: int
+    wait_max: int
+    wait_multiplier: int
+
+
+class DirectorySettings(BaseModel):
+    """Directory-related settings."""
+
+    tv_shows: str
+    movies: str
+
+
+class ConstantsSettings(BaseModel):
+    """Application constants."""
+
+    download_skipped: str
+    drm_protected: str
+    content_not_found_404: str
+    content_type_tv_shows: str
+    content_type_movies: str
+
+
+class Settings(BaseSettings):
+    """Main settings class."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="ERR_",
+        env_nested_delimiter="__",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    logger_level: str
+    download: DownloadSettings
+    threading: ThreadingSettings
+    retry: RetrySettings
+    directories: DirectorySettings
+    constants: ConstantsSettings
+    tv_shows: List[str]
+    movies: List[str]
+
+    @classmethod
+    def load_from_yaml(cls, config_path: str = "config.yaml") -> "Settings":
+        """Load settings from YAML file."""
+        config_file = Path(config_path)
+
+        if not config_file.exists():
+            raise FileNotFoundError(
+                f"Configuration file '{config_path}' not found. "
+                f"Please copy 'config.example.yaml' to '{config_path}' and adjust settings."
+            )
+
+        with open(config_file, "r", encoding="utf-8") as f:
+            config_data = yaml.safe_load(f)
+
+        return cls(**config_data)
+
+
+settings = Settings.load_from_yaml()

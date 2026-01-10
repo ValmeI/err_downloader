@@ -3,20 +3,19 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
-import settings
+from settings import settings
 from logger import init_logging
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
-from constants import DOWNLOAD_SKIPPED, DOWNLOAD_DRM_PROTECTED, CONTENT_TYPE_TV_SHOWS, CONTENT_TYPE_MOVIES, CONTENT_NOT_FOUND_404
 
 
 def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
     """Update statistics based on download result."""
     stats["total_processed"] += 1
-    if result == DOWNLOAD_DRM_PROTECTED:
+    if result == settings.constants.drm_protected:
         stats["drm_protected"] += 1
         if video_info:
             stats["drm_protected_list"].append(video_info)
-    elif result == DOWNLOAD_SKIPPED:
+    elif result == settings.constants.download_skipped:
         stats["skipped"] += 1
     elif result is True:
         stats["successful"] += 1
@@ -28,8 +27,8 @@ def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
 
 def download_episodes_threaded(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict) -> None:
     """Download episodes using ThreadPoolExecutor."""
-    logger.info(f"Starting download of {len(episode_ids)} episodes with {settings.MAX_WORKERS} workers")
-    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+    logger.info(f"Starting download of {len(episode_ids)} episodes with {settings.threading.get_max_workers()} workers")
+    with ThreadPoolExecutor(max_workers=settings.threading.get_max_workers()) as executor:
         futures = {executor.submit(run_download, ep_id, content_type, series_name): (i, ep_id) for i, ep_id in enumerate(episode_ids, 1)}
         for future in as_completed(futures):
             _, ep_id = futures[future]
@@ -63,17 +62,17 @@ def process_url(url: str, content_type: str, stats: Dict) -> None:
         stats["failed_list"].append(f"URL: {url} (failed to extract video ID)")
         return
 
-    if settings.DOWNLOAD_ALL_EPISODES:
+    if settings.download.download_all_episodes:
         logger.info("Fetching all episodes from series...")
         series_name, episode_ids = get_all_episodes_from_series(video_id)
 
         if episode_ids:
-            if settings.USE_THREADING:
+            if settings.threading.use_threading:
                 download_episodes_threaded(episode_ids, content_type, series_name, stats)
             else:
                 download_episodes_sequential(episode_ids, content_type, series_name, stats)
-        elif series_name == CONTENT_NOT_FOUND_404:
-            logger.warning(f"Sisu on ERRist eemaldatud ({CONTENT_NOT_FOUND_404}), vahele jäetud: {url}")
+        elif series_name == settings.constants.content_not_found_404:
+            logger.warning(f"Sisu on ERRist eemaldatud ({settings.constants.content_not_found_404}), vahele jäetud: {url}")
             stats["failed"] += 1
             stats["failed_list"].append(f"URL: {url} (sisu eemaldatud ERRist)")
         else:
@@ -119,21 +118,15 @@ def print_summary(stats: Dict) -> None:
 
 def main() -> None:
     """Main entry point for the ERR downloader."""
-    init_logging(settings.LOGGER_LEVEL)
+    init_logging(settings.logger_level)
 
-    ERR_MOVIE_URLS = [
-        "https://lasteekraan.err.ee/1211395/lohe-zog",
-        "https://lasteekraan.err.ee/1609882997/kuidas-taltsutada-lohet-talvepuhad",
-        "https://lasteekraan.err.ee/1609883009/jouluvana-joulupuhkus",
-    ]
-
-    all_urls = settings.TV_SHOWS + ERR_MOVIE_URLS
-    logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.TV_SHOWS)}, Movies: {len(ERR_MOVIE_URLS)})")
+    all_urls = settings.tv_shows + settings.movies
+    logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
 
     stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0, "drm_protected_list": [], "failed_list": []}
 
     for url in all_urls:
-        content_type = CONTENT_TYPE_TV_SHOWS if url in settings.TV_SHOWS else CONTENT_TYPE_MOVIES
+        content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
         process_url(url, content_type, stats)
 
     print_summary(stats)
