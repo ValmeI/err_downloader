@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import yaml
 from pydantic import BaseModel, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class DownloadSettings(BaseModel):
@@ -58,13 +58,6 @@ class ConstantsSettings(BaseModel):
 class Settings(BaseSettings):
     """Main settings class."""
 
-    model_config = SettingsConfigDict(
-        env_prefix="ERR_",
-        env_nested_delimiter="__",
-        case_sensitive=False,
-        extra="ignore",
-    )
-
     logger_level: str
     download: DownloadSettings
     threading: ThreadingSettings
@@ -85,10 +78,7 @@ class Settings(BaseSettings):
         config_file = Path(config_path)
 
         if not config_file.exists():
-            raise FileNotFoundError(
-                f"Configuration file '{config_path}' not found. "
-                f"Please copy 'config.example.yaml' to '{config_path}' and adjust settings."
-            )
+            raise FileNotFoundError(f"Configuration file '{config_path}' not found. Please copy 'config.example.yaml' to '{config_path}' and adjust settings.")
 
         with open(config_file, "r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f)

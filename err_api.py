@@ -145,7 +145,7 @@ def should_skip_download(final_file_path: str, file_title: str, heading: str, sk
 @retry(
     stop=stop_after_attempt(settings.retry.max_attempts),
     wait=wait_exponential(multiplier=settings.retry.wait_multiplier, min=settings.retry.wait_min, max=settings.retry.wait_max),
-    retry=retry_if_exception_type((RequestException, IOError))
+    retry=retry_if_exception_type((RequestException, IOError)),
 )
 def download_file_with_progress(url: str, file_path: str, file_title: str) -> bool:
     """Download file from URL with progress bar."""
