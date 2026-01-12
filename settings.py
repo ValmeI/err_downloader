@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -71,8 +71,13 @@ class Settings(BaseSettings):
     retry: RetrySettings
     directories: DirectorySettings
     constants: ConstantsSettings
-    tv_shows: List[str]
-    movies: List[str]
+    tv_shows: Optional[List[str]] = None
+    movies: Optional[List[str]] = None
+
+    @field_validator("tv_shows", "movies", mode="before")
+    @classmethod
+    def convert_none_to_empty_list(cls, v):
+        return v if v is not None else []
 
     @classmethod
     def load_from_yaml(cls, config_path: str = "config.yaml") -> "Settings":
