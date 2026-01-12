@@ -71,8 +71,8 @@ class Settings(BaseSettings):
     retry: RetrySettings
     directories: DirectorySettings
     constants: ConstantsSettings
-    tv_shows: Optional[List[str]] = None
-    movies: Optional[List[str]] = None
+    tv_shows: List[str] = []
+    movies: List[str] = []
 
     @field_validator("tv_shows", "movies", mode="before")
     @classmethod
