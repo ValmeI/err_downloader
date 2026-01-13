@@ -19,6 +19,8 @@ def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
         stats["skipped"] += 1
     elif result is True:
         stats["successful"] += 1
+        if video_info:
+            stats["successful_list"].append(video_info)
     else:
         stats["failed"] += 1
         if video_info:
@@ -98,7 +100,14 @@ def print_summary(stats: Dict) -> None:
     logger.success("Allalaadimised lõpetatud!")
     logger.info("=" * 60)
     logger.info(f"Kokku töödeldud: {stats['total_processed']} videot")
-    logger.info(f"Alla laaditud: {stats['successful']}")
+
+    if stats["successful_list"]:
+        logger.info(f"Alla laaditud: {stats['successful']}")
+        for video in stats["successful_list"]:
+            logger.info(f"  - {video}")
+    else:
+        logger.info(f"Alla laaditud: {stats['successful']}")
+
     logger.info(f"Juba olemas (vahele jäetud): {stats['skipped']}")
 
     if stats["drm_protected_list"]:
@@ -123,7 +132,7 @@ def main() -> None:
     all_urls = settings.tv_shows + settings.movies
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
 
-    stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0, "drm_protected_list": [], "failed_list": []}
+    stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0, "drm_protected_list": [], "failed_list": [], "successful_list": []}
 
     for url in all_urls:
         content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
