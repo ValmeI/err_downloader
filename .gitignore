@@ -129,3 +129,4 @@ cython_debug/
 
 # User config file (keep example only)
 config.yaml
+config.homelab.yaml
