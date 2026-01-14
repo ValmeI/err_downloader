@@ -102,12 +102,14 @@ def print_summary(stats: Dict) -> None:
     logger.info(f"Kokku töödeldud: {stats['total_processed']} videot")
 
     if stats["successful_list"]:
+        logger.info("")
         logger.info(f"Alla laaditud: {stats['successful']}")
         for video in stats["successful_list"]:
             logger.info(f"  - {video}")
     else:
         logger.info(f"Alla laaditud: {stats['successful']}")
 
+    logger.info("")
     logger.info(f"Juba olemas (vahele jäetud): {stats['skipped']}")
 
     if stats["drm_protected_list"]:
