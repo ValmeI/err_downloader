@@ -134,7 +134,16 @@ def main() -> None:
     all_urls = settings.tv_shows + settings.movies
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
 
-    stats = {"total_processed": 0, "successful": 0, "skipped": 0, "failed": 0, "drm_protected": 0, "drm_protected_list": [], "failed_list": [], "successful_list": []}
+    stats = {
+        "total_processed": 0,
+        "successful": 0,
+        "skipped": 0,
+        "failed": 0,
+        "drm_protected": 0,
+        "drm_protected_list": [],
+        "failed_list": [],
+        "successful_list": [],
+    }
 
     for url in all_urls:
         content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
