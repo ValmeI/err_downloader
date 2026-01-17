@@ -18,7 +18,7 @@ echo "Code updated"
 echo ""
 
 # 2. Copy config
-echo "Copying config to homelab..."
+echo "Copying config from local to homelab, as config.yaml is not in the GIT repository..."
 scp -i "$SSH_KEY" config.homelab.yaml "$HOMELAB:$APP_DIR/config.yaml"
 echo "Config updated"
 echo ""
