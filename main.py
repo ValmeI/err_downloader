@@ -1,11 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
+import sys
 
 from loguru import logger
 
 from settings import settings
 from logger import init_logging
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
+from homelab_monitoring import HealthchecksMonitor, StatusFileWriter
 
 
 def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
@@ -127,9 +129,25 @@ def print_summary(stats: Dict) -> None:
     logger.info("=" * 60)
 
 
-def main() -> None:
-    """Main entry point for the ERR downloader."""
+def main() -> int:
+    """Main entry point for the ERR downloader.
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
     init_logging(settings.logger_level, settings.logger_file)
+
+    # Initialize monitoring
+    monitor = HealthchecksMonitor(
+        enabled=settings.monitoring.enabled,
+        healthchecks_url=settings.monitoring.healthchecks_url,
+        ping_on_start=settings.monitoring.ping_on_start,
+        ping_on_success=settings.monitoring.ping_on_success,
+        ping_on_failure=settings.monitoring.ping_on_failure,
+    )
+    status_writer = StatusFileWriter()
+
+    monitor.ping_start()
 
     all_urls = settings.tv_shows + settings.movies
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
@@ -145,12 +163,44 @@ def main() -> None:
         "successful_list": [],
     }
 
-    for url in all_urls:
-        content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
-        process_url(url, content_type, stats)
+    success = True
+    error_message = None
 
-    print_summary(stats)
+    try:
+        for url in all_urls:
+            content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
+            process_url(url, content_type, stats)
+
+        print_summary(stats)
+
+        # Check if there were critical failures
+        if stats["failed"] > 0:
+            logger.warning(f"Completed with {stats['failed']} failures")
+            # Don't fail the entire run if only some downloads failed
+            # success remains True
+
+    except Exception as e:
+        success = False
+        error_message = f"Critical error: {str(e)}"
+        logger.error(error_message)
+        monitor.ping_fail(error_message)
+        status_writer.write_status(stats, success=False, error_message=error_message)
+        return 1
+
+    # Write status and ping success/fail
+    status_writer.write_status(stats, success=success, error_message=error_message)
+
+    if success:
+        execution_time = monitor.get_execution_time()
+        success_message = f"Completed successfully. Processed: {stats['total_processed']}, Downloaded: {stats['successful']}, Skipped: {stats['skipped']}"
+        if execution_time:
+            success_message += f", Time: {execution_time:.1f}s"
+        monitor.ping_success(success_message)
+        return 0
+    else:
+        monitor.ping_fail(error_message)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
