@@ -173,11 +173,10 @@ def main() -> int:
 
         print_summary(stats)
 
-        # Check if there were critical failures
         if stats["failed"] > 0:
-            logger.warning(f"Completed with {stats['failed']} failures")
-            # Don't fail the entire run if only some downloads failed
-            # success remains True
+            logger.warning(f"Completed with {stats['failed']} failures:")
+            for failed_item in stats["failed_list"]:
+                logger.warning(f"  - {failed_item}")
 
     except Exception as e:
         success = False
