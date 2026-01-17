@@ -3,6 +3,7 @@
 
 # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 logger_level: INFO
+logger_file: null  # Set to logs/downloader.log for file logging
 
 # Download settings
 download:

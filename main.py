@@ -129,7 +129,7 @@ def print_summary(stats: Dict) -> None:
 
 def main() -> None:
     """Main entry point for the ERR downloader."""
-    init_logging(settings.logger_level)
+    init_logging(settings.logger_level, settings.logger_file)
 
     all_urls = settings.tv_shows + settings.movies
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")

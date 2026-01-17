@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     """Main settings class."""
 
     logger_level: str
+    logger_file: Optional[str] = None  # Optional path to log file (e.g., "logs/downloader.log")
     download: DownloadSettings
     threading: ThreadingSettings
     retry: RetrySettings
