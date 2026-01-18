@@ -3,7 +3,7 @@
 
 # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 logger_level: INFO
-logger_file: null  # Set to logs/downloader.log for file logging
+logger_file: logs/downloader.log  # Required for Monit monitoring in homelab setup
 
 # Download settings
 download:
