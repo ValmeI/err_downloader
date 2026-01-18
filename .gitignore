@@ -133,6 +133,3 @@ config.homelab.yaml
 
 # Log files directory
 logs/
-
-# Monitoring status file (generated at runtime)
-status.json

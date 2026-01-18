@@ -6,6 +6,3 @@ PyYAML>=6.0.0
 loguru>=0.7.0
 tenacity>=9.1.0
 tqdm>=4.67.0
-
-# Homelab monitoring (from homelab repo)
-homelab-monitoring @ git+https://github.com/ValmeI/homelab.git#subdirectory=monitoring/python-lib

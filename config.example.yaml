@@ -37,15 +37,6 @@ constants:
   content_type_tv_shows: tv_shows
   content_type_movies: movies
 
-# Monitoring settings (Healthchecks.io integration)
-# Optional: Enable monitoring for production deployments
-monitoring:
-  enabled: true  # Set to true to enable Healthchecks.io monitoring
-  healthchecks_url: null  # Your Healthchecks.io ping URL (e.g., "https://hc-ping.com/your-uuid")
-  ping_on_start: true  # Ping when script starts
-  ping_on_success: true  # Ping on successful completion
-  ping_on_failure: true  # Ping on failure
-
 # TV shows to always check for new episodes
 # Add ERR lasteekraan.err.ee URLs for TV series you want to monitor
 tv_shows:

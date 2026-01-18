@@ -7,7 +7,6 @@ from loguru import logger
 from settings import settings
 from logger import init_logging
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
-from homelab_monitoring import HealthchecksMonitor, StatusFileWriter
 
 
 def update_stats(stats: Dict, result: str | bool, video_info: str = "") -> None:
@@ -137,18 +136,6 @@ def main() -> int:
     """
     init_logging(settings.logger_level, settings.logger_file)
 
-    # Initialize monitoring
-    monitor = HealthchecksMonitor(
-        enabled=settings.monitoring.enabled,
-        healthchecks_url=settings.monitoring.healthchecks_url,
-        ping_on_start=settings.monitoring.ping_on_start,
-        ping_on_success=settings.monitoring.ping_on_success,
-        ping_on_failure=settings.monitoring.ping_on_failure,
-    )
-    status_writer = StatusFileWriter()
-
-    monitor.ping_start()
-
     all_urls = settings.tv_shows + settings.movies
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
 
@@ -179,26 +166,11 @@ def main() -> int:
                 logger.warning(f"  - {failed_item}")
 
     except Exception as e:
-        success = False
         error_message = f"Critical error: {str(e)}"
         logger.error(error_message)
-        monitor.ping_fail(error_message)
-        status_writer.write_status(stats, success=False, error_message=error_message)
         return 1
 
-    # Write status and ping success/fail
-    status_writer.write_status(stats, success=success, error_message=error_message)
-
-    if success:
-        execution_time = monitor.get_execution_time()
-        success_message = f"Completed successfully. Processed: {stats['total_processed']}, Downloaded: {stats['successful']}, Skipped: {stats['skipped']}"
-        if execution_time:
-            success_message += f", Time: {execution_time:.1f}s"
-        monitor.ping_success(success_message)
-        return 0
-    else:
-        monitor.ping_fail(error_message)
-        return 1
+    return 0
 
 
 if __name__ == "__main__":

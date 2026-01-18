@@ -55,16 +55,6 @@ class ConstantsSettings(BaseModel):
     content_type_movies: str
 
 
-class MonitoringSettings(BaseModel):
-    """Monitoring-related settings (Healthchecks.io integration)."""
-
-    enabled: bool = False
-    healthchecks_url: Optional[str] = None
-    ping_on_start: bool = True
-    ping_on_success: bool = True
-    ping_on_failure: bool = True
-
-
 class Settings(BaseSettings):
     """Main settings class."""
 
@@ -75,7 +65,6 @@ class Settings(BaseSettings):
     retry: RetrySettings
     directories: DirectorySettings
     constants: ConstantsSettings
-    monitoring: MonitoringSettings = MonitoringSettings()  # Optional, defaults to disabled
     tv_shows: List[str] = []
     movies: List[str] = []
 
