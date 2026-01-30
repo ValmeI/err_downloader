@@ -104,11 +104,11 @@ def print_summary(stats: Dict) -> None:
 
     if stats["successful_list"]:
         logger.info("")
-        logger.info(f"Alla laaditud: {stats['successful']}")
+        logger.success(f"Alla laaditud: {stats['successful']}")
         for video in stats["successful_list"]:
-            logger.info(f"  - {video}")
+            logger.success(f"  - {video}")
     else:
-        logger.info(f"Alla laaditud: {stats['successful']}")
+        logger.success(f"Alla laaditud: {stats['successful']}")
 
     logger.info("")
     logger.info(f"Juba olemas (vahele jäetud): {stats['skipped']}")
@@ -121,9 +121,9 @@ def print_summary(stats: Dict) -> None:
 
     if stats["failed_list"]:
         logger.info("")
-        logger.info(f"Ebaõnnestunud: {stats['failed']}")
+        logger.warning(f"Ebaõnnestunud: {stats['failed']}")
         for video in stats["failed_list"]:
-            logger.info(f"  - {video}")
+            logger.warning(f"  - {video}")
 
     logger.info("=" * 60)
 
