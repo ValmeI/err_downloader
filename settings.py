@@ -56,6 +56,7 @@ class ConstantsSettings(BaseModel):
     content_not_found_404: str
     content_type_tv_shows: str
     content_type_movies: str
+    cache_skipped: str
 
 
 class Settings(BaseSettings):
@@ -63,6 +64,7 @@ class Settings(BaseSettings):
 
     logger_level: str
     logger_file: Optional[str] = None  # Optional path to log file (e.g., "logs/downloader.log")
+    cache_file: str
     download: DownloadSettings
     threading: ThreadingSettings
     retry: RetrySettings

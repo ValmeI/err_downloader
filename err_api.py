@@ -189,12 +189,12 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
         raise
 
 
-def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> str | bool:
-    """Download MP4 file. Returns True on success, 'skipped' if file exists, False on failure."""
+def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str, skip_existing: bool = True) -> tuple[str, str] | str | bool:
+    """Download MP4 file. Returns (status, file_path) tuple, or False on failure."""
     final_folder_path, final_file_path = get_file_paths(heading, file_title, content_type)
 
     if should_skip_download(final_file_path, file_title, heading, skip_existing):
-        return settings.constants.download_skipped
+        return (settings.constants.download_skipped, final_file_path)
 
     logger.info(f"Starting download: [{heading}] {file_title}")
 
@@ -203,7 +203,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
     try:
         download_file_with_progress(mp4_url, final_file_path, file_title)
         logger.success(f"Download completed: [{heading}] {file_title}")
-        return True
+        return ("success", final_file_path)
     except Exception:
         if os.path.exists(final_file_path):
             os.remove(final_file_path)

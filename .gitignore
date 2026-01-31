@@ -133,3 +133,6 @@ config.homelab.yaml
 
 # Log files directory
 logs/
+
+# Download cache
+.err_downloader_cache.json
