@@ -8,6 +8,9 @@ import yaml
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 
+# Config file path - used across the application
+CONFIG_PATH = Path(__file__).parent / "config.yaml"
+
 
 class DownloadSettings(BaseModel):
     """Download-related settings."""
@@ -74,14 +77,12 @@ class Settings(BaseSettings):
         return v if v is not None else []
 
     @classmethod
-    def load_from_yaml(cls, config_path: str = "config.yaml") -> "Settings":
+    def load_from_yaml(cls, config_path: Path = CONFIG_PATH) -> "Settings":
         """Load settings from YAML file."""
-        config_file = Path(config_path)
-
-        if not config_file.exists():
+        if not config_path.exists():
             raise FileNotFoundError(f"Configuration file '{config_path}' not found. Please copy 'config.example.yaml' to '{config_path}' and adjust settings.")
 
-        with open(config_file, "r", encoding="utf-8") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
 
         return cls(**config_data)

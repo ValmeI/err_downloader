@@ -1,6 +1,6 @@
 import re
 import os
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Set, Dict
 import requests
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
@@ -148,14 +148,34 @@ def should_skip_download(final_file_path: str, file_title: str, heading: str, sk
     retry=retry_if_exception_type((RequestException, IOError)),
 )
 def download_file_with_progress(url: str, file_path: str, file_title: str) -> bool:
-    """Download file from URL with progress bar."""
+    """Download file from URL with progress bar and resume support."""
     try:
-        response = requests.get(url, stream=True, timeout=settings.download.timeout_max)
+        existing_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        headers = {"Range": f"bytes={existing_size}-"} if existing_size > 0 else {}
+
+        if existing_size > 0:
+            logger.info(f"Resuming from {existing_size / (1024*1024):.1f} MB")
+
+        response = requests.get(url, stream=True, timeout=(10, 30), headers=headers)
+
+        # Server ei toeta resume -> alusta algusest
+        if existing_size > 0 and response.status_code == 200:
+            existing_size = 0
+            logger.warning("Server doesn't support resume, starting fresh")
+
         response.raise_for_status()
 
-        total = int(response.headers.get("content-length", 0))
-        with open(file_path, "wb") as file:
-            with tqdm(total=total, unit="B", unit_scale=True, desc=file_title) as pbar:
+        # Kogusuurus
+        if response.status_code == 206:
+            content_range = response.headers.get("Content-Range", "")
+            total = int(content_range.split("/")[-1]) if "/" in content_range else 0
+        else:
+            total = int(response.headers.get("content-length", 0))
+
+        mode = "ab" if existing_size > 0 else "wb"
+
+        with open(file_path, mode) as file:
+            with tqdm(total=total, initial=existing_size, unit="B", unit_scale=True, desc=file_title) as pbar:
                 for chunk in response.iter_content(chunk_size=settings.download.chunk_size):
                     if chunk:
                         file.write(chunk)
@@ -185,6 +205,9 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
         logger.success(f"Download completed: [{heading}] {file_title}")
         return True
     except Exception:
+        if os.path.exists(final_file_path):
+            os.remove(final_file_path)
+            logger.warning(f"Deleted partial file: {final_file_path}")
         return False
 
 
@@ -279,3 +302,84 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
     except (ValueError, KeyError) as e:
         logger.error(f"Failed to parse series data: {str(e)}")
         return None, []
+
+
+def extract_show_slug(url: str) -> str:
+    """Extract show slug from URL (e.g., 'tuta-asjad')."""
+    match = re.search(r"/\d+/([^/]+)/?$", url)
+    return match.group(1) if match else ""
+
+
+def get_season_urls_from_api(content_id: int, show_slug: str) -> Set[str]:
+    """Fetch seasonList from ERR API and return all season URLs."""
+    found_urls: Set[str] = set()
+
+    try:
+        url = API_BASE_URL.format(content_id)
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            return found_urls
+
+        data = response.json()
+        season_list = data.get("data", {}).get("seasonList", {})
+
+        for season in season_list.get("items", []):
+            first_id = season.get("firstContentId")
+            if first_id:
+                new_url = f"https://lasteekraan.err.ee/{first_id}/{show_slug}"
+                found_urls.add(new_url)
+
+    except Exception as e:
+        logger.debug(f"API error for {content_id}: {e}")
+
+    return found_urls
+
+
+def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
+    """
+    Discover missing season URLs for TV shows.
+
+    Returns dict mapping show_slug -> set of missing URLs.
+    """
+    # Group URLs by show slug
+    existing_by_show: Dict[str, Set[str]] = {}
+    existing_ids: Set[str] = set()
+
+    for url in tv_show_urls:
+        slug = extract_show_slug(url)
+        if slug:
+            if slug not in existing_by_show:
+                existing_by_show[slug] = set()
+            existing_by_show[slug].add(url)
+
+        vid = extract_video_id(url)
+        if vid:
+            existing_ids.add(str(vid))
+
+    missing_by_show: Dict[str, Set[str]] = {}
+
+    for slug, existing_urls in existing_by_show.items():
+        logger.info(f"Kontrollin: {slug.replace('-', ' ')}")
+
+        # Check each existing URL's API for season links
+        found_urls: Set[str] = set()
+        for url in existing_urls:
+            vid = extract_video_id(url)
+            if vid:
+                season_urls = get_season_urls_from_api(vid, slug)
+                found_urls.update(season_urls)
+
+        # Find missing URLs
+        missing: Set[str] = set()
+        for url in found_urls:
+            vid = extract_video_id(url)
+            if vid and str(vid) not in existing_ids:
+                missing.add(url)
+
+        if missing:
+            missing_by_show[slug] = missing
+            logger.success(f"Leitud {len(missing)} uut URL-i: {slug.replace('-', ' ')}")
+            for url in sorted(missing):
+                logger.success(f"  🆕 {url}")
+
+    return missing_by_show
