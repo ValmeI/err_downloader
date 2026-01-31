@@ -48,6 +48,24 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
         return None
 
 
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for cross-platform compatibility (Windows/SMB/Linux/Mac)."""
+    replacements = {
+        ":": ".",
+        "/": "-",
+        "\\": "-",
+        "*": "",
+        "?": "",
+        '"': "",
+        "<": "",
+        ">": "",
+        "|": "",
+    }
+    for char, replacement in replacements.items():
+        filename = filename.replace(char, replacement)
+    return filename
+
+
 def build_file_title(main_content: dict, content_type: str) -> str:
     """Build file title with season/episode for TV shows or statsHeading for movies."""
     year = main_content.get("year", "")
@@ -59,7 +77,8 @@ def build_file_title(main_content: dict, content_type: str) -> str:
         if season is not None and episode is not None and season > 0 and episode > 0:
             return f"S{season:02d}E{episode:02d} {year}".strip()
 
-    return f"{main_content.get('statsHeading', '')} {year}".strip()
+    title = f"{main_content.get('statsHeading', '')} {year}".strip()
+    return sanitize_filename(title)
 
 
 def extract_mp4_url(medias: list) -> Optional[str]:
@@ -87,7 +106,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
             logger.warning(f"Vaata videot {heading} ERR veebilehel: https://jupiter.err.ee/{content_id}")
             return settings.constants.drm_protected, settings.constants.drm_protected, settings.constants.drm_protected
 
-        folder_name = main_content.get("heading", "").replace(".", "")
+        folder_name = sanitize_filename(main_content.get("heading", "").replace(".", ""))
         file_title = build_file_title(main_content, content_type)
         mp4_url = extract_mp4_url(medias)
 
