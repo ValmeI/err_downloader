@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, field_validator
@@ -92,12 +92,31 @@ class Settings(BaseSettings):
 settings = Settings.load_from_yaml()
 
 
-def update_config(updates: dict) -> None:
+def _add_blank_lines_before_sections(content: str) -> str:
+    """Add blank lines before each top-level YAML section for readability."""
+    lines = content.split('\n')
+    result = []
+
+    for i, line in enumerate(lines):
+        # Check if this is a top-level key (no indentation, no list marker, contains colon)
+        if line and not line.startswith(' ') and not line.startswith('-') and ':' in line and i > 0:
+            # Add blank line before section if previous line is not already blank
+            if result and result[-1] != '':
+                result.append('')
+        result.append(line)
+
+    return '\n'.join(result)
+
+
+def update_config(updates: Dict[str, Any]) -> None:
     """Update config.yaml with new values."""
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     config.update(updates)
 
+    content = yaml.dump(config, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    formatted_content = _add_blank_lines_before_sections(content)
+
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        f.write(formatted_content)
