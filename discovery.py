@@ -2,21 +2,16 @@
 
 from typing import Dict, Set
 
-import yaml
 from loguru import logger
 
-from settings import CONFIG_PATH
+from settings import settings, update_config, CONFIG_PATH
 from err_api import discover_missing_urls
 
 
 def add_urls_to_config(missing_by_show: Dict[str, Set[str]]) -> int:
-    """Add missing URLs to config.yaml."""
-
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-
+    """Add missing URLs to config yaml file."""
+    tv_shows = list(settings.tv_shows)
     added = 0
-    tv_shows = config.get("tv_shows") or []
 
     for urls in missing_by_show.values():
         for url in urls:
@@ -26,9 +21,8 @@ def add_urls_to_config(missing_by_show: Dict[str, Set[str]]) -> int:
                 logger.info(f"Lisatud: {url}")
 
     if added > 0:
-        config["tv_shows"] = tv_shows
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        tv_shows.sort()
+        update_config({"tv_shows": tv_shows})
         logger.success(f"Config.yaml uuendatud! Lisatud {added} URL-i.")
 
     return added
@@ -41,7 +35,7 @@ def run_discovery(tv_show_urls: list, add_to_config: bool) -> int:
     missing = discover_missing_urls(tv_show_urls)
 
     if not missing:
-        logger.success("Kõik URL-id on juba config.yaml-is!")
+        logger.success(f"Kõik URL-id on juba {CONFIG_PATH}-is!")
         return 0
 
     total = sum(len(urls) for urls in missing.values())

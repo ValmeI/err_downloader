@@ -154,18 +154,17 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
         headers = {"Range": f"bytes={existing_size}-"} if existing_size > 0 else {}
 
         if existing_size > 0:
-            logger.info(f"Resuming from {existing_size / (1024*1024):.1f} MB")
+            logger.info(f"Resuming from {existing_size / (1024 * 1024):.1f} MB")
 
         response = requests.get(url, stream=True, timeout=(10, 30), headers=headers)
 
-        # Server ei toeta resume -> alusta algusest
+        # Server doesn't support resume, start from beginning
         if existing_size > 0 and response.status_code == 200:
             existing_size = 0
             logger.warning("Server doesn't support resume, starting fresh")
 
         response.raise_for_status()
 
-        # Kogusuurus
         if response.status_code == 206:
             content_range = response.headers.get("Content-Range", "")
             total = int(content_range.split("/")[-1]) if "/" in content_range else 0
@@ -341,7 +340,6 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
 
     Returns dict mapping show_slug -> set of missing URLs.
     """
-    # Group URLs by show slug
     existing_by_show: Dict[str, Set[str]] = {}
     existing_ids: Set[str] = set()
 
@@ -361,7 +359,6 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
     for slug, existing_urls in existing_by_show.items():
         logger.info(f"Kontrollin: {slug.replace('-', ' ')}")
 
-        # Check each existing URL's API for season links
         found_urls: Set[str] = set()
         for url in existing_urls:
             vid = extract_video_id(url)
@@ -369,7 +366,6 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
                 season_urls = get_season_urls_from_api(vid, slug)
                 found_urls.update(season_urls)
 
-        # Find missing URLs
         missing: Set[str] = set()
         for url in found_urls:
             vid = extract_video_id(url)
@@ -380,6 +376,6 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
             missing_by_show[slug] = missing
             logger.success(f"Leitud {len(missing)} uut URL-i: {slug.replace('-', ' ')}")
             for url in sorted(missing):
-                logger.success(f"  🆕 {url}")
+                logger.success(f"  {url}")
 
     return missing_by_show

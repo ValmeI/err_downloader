@@ -17,13 +17,11 @@ def setup_loguru_logger(level: str = "INFO", log_file: Optional[str] = None) -> 
     # Always log to stderr (for manual runs)
     logger.add(sys.stderr, level=level, format=log_format, colorize=True, backtrace=True, diagnose=True)
 
-    # Also log to file if specified
     if log_file:
-        # Create logs directory if it doesn't exist
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Add file handler (without colors)
+        # File handler without colors
         logger.add(
             log_file,
             level=level,
@@ -33,7 +31,6 @@ def setup_loguru_logger(level: str = "INFO", log_file: Optional[str] = None) -> 
             diagnose=True,
             rotation="00:00",  # Rotate at midnight
             retention="14 days",  # Keep logs for 14 days
-            compression="gz"  # Compress old logs
         )
 
 

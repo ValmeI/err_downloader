@@ -8,7 +8,6 @@ import yaml
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 
-# Config file path - used across the application
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
 
@@ -91,3 +90,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings.load_from_yaml()
+
+
+def update_config(updates: dict) -> None:
+    """Update config.yaml with new values."""
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    config.update(updates)
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)

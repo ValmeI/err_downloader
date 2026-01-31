@@ -1,7 +1,7 @@
 """Download module for ERR video downloading."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Tuple
 
 from loguru import logger
 
@@ -9,15 +9,15 @@ from settings import settings
 from err_api import extract_video_id, get_all_episodes_from_series, run_download
 from cache import DownloadCache
 
-# Global cache instance
 cache = DownloadCache(settings.cache_file)
 
+DownloadResult = Union[Tuple[str, str], str, bool]
 
-def update_stats(stats: Dict, result, video_info: str = "") -> None:
+
+def update_stats(stats: Dict, result: DownloadResult, video_info: str = "") -> None:
     """Update statistics based on download result."""
     stats["total_processed"] += 1
 
-    # Handle tuple results (status, file_path)
     status = result[0] if isinstance(result, tuple) else result
 
     if status == settings.constants.drm_protected:
@@ -38,50 +38,60 @@ def update_stats(stats: Dict, result, video_info: str = "") -> None:
             stats["failed_list"].append(video_info)
 
 
-def download_episodes_threaded(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict) -> None:
-    """Download episodes using ThreadPoolExecutor."""
-    # Filter out cached episodes first
+def handle_download_result(result: DownloadResult, video_id: int, video_info: str, stats: Dict) -> None:
+    """Process download result: update stats and cache successful downloads."""
+    update_stats(stats, result, video_info)
+
+    if isinstance(result, tuple) and len(result) == 2:
+        status, file_path = result
+        if status in ("success", settings.constants.download_skipped):
+            cache.mark_downloaded(video_id, file_path)
+    elif not result:
+        logger.error(f"Failed to download: {video_info}")
+
+
+def filter_cached_episodes(episode_ids: List[int], series_name: Optional[str], stats: Dict) -> List[int]:
+    """Filter out cached episodes and update stats for skipped ones."""
     episodes_to_download = []
     for ep_id in episode_ids:
-        cached_path = cache.is_downloaded(ep_id)
-        if cached_path:
+        if cache.is_downloaded(ep_id):
             logger.info(f"[{series_name}] Cached, skipping: Episode ID {ep_id}")
             video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
             update_stats(stats, settings.constants.cache_skipped, video_info)
         else:
             episodes_to_download.append(ep_id)
+    return episodes_to_download
+
+
+def download_episodes_threaded(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict) -> None:
+    """Download episodes using ThreadPoolExecutor."""
+    episodes_to_download = filter_cached_episodes(episode_ids, series_name, stats)
 
     if not episodes_to_download:
         logger.info(f"[{series_name}] All {len(episode_ids)} episodes already cached")
         return
 
-    logger.info(f"[{series_name}] Starting download of {len(episodes_to_download)} episodes with {settings.threading.get_max_workers()} workers ({len(episode_ids) - len(episodes_to_download)} cached)")
+    logger.info(
+        f"[{series_name}] Starting download of {len(episodes_to_download)} episodes with {settings.threading.get_max_workers()} workers ({len(episode_ids) - len(episodes_to_download)} cached)"
+    )
     with ThreadPoolExecutor(max_workers=settings.threading.get_max_workers()) as executor:
-        futures = {executor.submit(run_download, ep_id, content_type, series_name): (i, ep_id) for i, ep_id in enumerate(episodes_to_download, 1)}
+        futures = {executor.submit(run_download, ep_id, content_type, series_name): ep_id for ep_id in episodes_to_download}
         for future in as_completed(futures):
-            _, ep_id = futures[future]
+            ep_id = futures[future]
             result = future.result()
             video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
-            update_stats(stats, result, video_info)
-            # Cache if we got a file path (success or skipped with existing file)
-            if isinstance(result, tuple) and len(result) == 2:
-                status, file_path = result
-                if status in ("success", settings.constants.download_skipped):
-                    cache.mark_downloaded(ep_id, file_path)
-            elif not result:
-                logger.error(f"Failed to download: {video_info}")
+            handle_download_result(result, ep_id, video_info, stats)
 
 
 def download_episodes_sequential(episode_ids: List[int], content_type: str, series_name: Optional[str], stats: Dict) -> None:
     """Download episodes sequentially."""
     logger.info(f"[{series_name}] Starting download of {len(episode_ids)} episodes")
     cached_count = 0
+
     for i, ep_id in enumerate(episode_ids, 1):
         video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
 
-        # Check cache first
-        cached_path = cache.is_downloaded(ep_id)
-        if cached_path:
+        if cache.is_downloaded(ep_id):
             logger.info(f"[{series_name}] Cached, skipping: Episode ID {ep_id}")
             update_stats(stats, settings.constants.cache_skipped, video_info)
             cached_count += 1
@@ -89,17 +99,21 @@ def download_episodes_sequential(episode_ids: List[int], content_type: str, seri
 
         logger.info(f"[{series_name}] Processing episode {i}/{len(episode_ids)}")
         result = run_download(ep_id, content_type, series_name)
-        update_stats(stats, result, video_info)
-        # Cache if we got a file path (success or skipped with existing file)
-        if isinstance(result, tuple) and len(result) == 2:
-            status, file_path = result
-            if status in ("success", settings.constants.download_skipped):
-                cache.mark_downloaded(ep_id, file_path)
-        elif not result:
-            logger.error(f"Failed to download: {video_info}")
+        handle_download_result(result, ep_id, video_info, stats)
 
     if cached_count > 0:
         logger.info(f"[{series_name}] Skipped {cached_count} cached episodes")
+
+
+def download_single_video(video_id: int, content_type: str, video_info: str, stats: Dict) -> None:
+    """Download a single video with cache check."""
+    if cache.is_downloaded(video_id):
+        logger.info(f"Cached, skipping: {video_info}")
+        update_stats(stats, settings.constants.cache_skipped, video_info)
+        return
+
+    result = run_download(video_id, content_type=content_type)
+    handle_download_result(result, video_id, video_info, stats)
 
 
 def process_url(url: str, content_type: str, stats: Dict) -> None:
@@ -130,45 +144,17 @@ def process_url(url: str, content_type: str, stats: Dict) -> None:
         else:
             title_info = f" '{series_name}'" if series_name else ""
             logger.warning(f"No episodes found for{title_info} {url} (ID: {video_id}), trying single video...")
-            video_info = f"Video ID {video_id} from {url}"
-            # Check cache first
-            cached_path = cache.is_downloaded(video_id)
-            if cached_path:
-                logger.info(f"Cached, skipping: {video_info}")
-                update_stats(stats, settings.constants.cache_skipped, video_info)
-            else:
-                result = run_download(video_id, content_type=content_type)
-                update_stats(stats, result, video_info)
-                if isinstance(result, tuple) and len(result) == 2:
-                    status, file_path = result
-                    if status in ("success", settings.constants.download_skipped):
-                        cache.mark_downloaded(video_id, file_path)
-                elif not result:
-                    logger.error(f"Failed to download video from {url}")
+            download_single_video(video_id, content_type, f"Video ID {video_id} from {url}", stats)
     else:
         logger.info("Downloading single video")
-        video_info = f"Video ID {video_id} from {url}"
-        # Check cache first
-        cached_path = cache.is_downloaded(video_id)
-        if cached_path:
-            logger.info(f"Cached, skipping: {video_info}")
-            update_stats(stats, settings.constants.cache_skipped, video_info)
-        else:
-            result = run_download(video_id, content_type=content_type)
-            update_stats(stats, result, video_info)
-            if isinstance(result, tuple) and len(result) == 2:
-                status, file_path = result
-                if status in ("success", settings.constants.download_skipped):
-                    cache.mark_downloaded(video_id, file_path)
-            elif not result:
-                logger.error(f"Failed to download video from {url}")
+        download_single_video(video_id, content_type, f"Video ID {video_id} from {url}", stats)
 
 
 def print_summary(stats: Dict) -> None:
     """Print download summary statistics."""
-    logger.info("=" * 60)
+    logger.info("=" * 80)
     logger.success("Allalaadimised lõpetatud!")
-    logger.info("=" * 60)
+    logger.info("=" * 80)
     logger.info(f"Kokku töödeldud: {stats['total_processed']} videot")
 
     if stats["successful_list"]:
@@ -194,7 +180,7 @@ def print_summary(stats: Dict) -> None:
         for video in stats["failed_list"]:
             logger.warning(f"  - {video}")
 
-    logger.info("=" * 60)
+    logger.info("=" * 80)
 
 
 def run_download_mode() -> int:
