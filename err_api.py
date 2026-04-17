@@ -6,7 +6,7 @@ from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from requests.exceptions import RequestException
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, retry_if_exception
 from settings import settings
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
@@ -16,6 +16,27 @@ session.headers.update({"Connection": "keep-alive", "Accept-Encoding": "gzip, de
 adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10, max_retries=0)
 session.mount("https://", adapter)
 session.mount("http://", adapter)
+
+
+def _is_server_error(exception):
+    """Check if exception is a server-side HTTP error (5xx)."""
+    return (
+        isinstance(exception, requests.HTTPError)
+        and exception.response is not None
+        and exception.response.status_code >= 500
+    )
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    retry=retry_if_exception(_is_server_error),
+)
+def _api_get(url: str, timeout: int) -> requests.Response:
+    """Make API GET request with retry on 5xx errors."""
+    response = session.get(url, timeout=timeout)
+    response.raise_for_status()
+    return response
 
 
 def is_drm_protected(media_data: dict) -> bool:
@@ -30,9 +51,7 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
         url = API_BASE_URL.format(content_id)
         logger.info(f"Fetching video details for content_id: {content_id}")
 
-        response = session.get(url, timeout=settings.download.timeout_max)
-        response.raise_for_status()
-
+        response = _api_get(url, timeout=settings.download.timeout_max)
         return response.json()
     except requests.HTTPError as e:
         if e.response.status_code == 404:
@@ -274,9 +293,7 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
         url = API_BASE_URL.format(series_id)
         logger.info(f"Fetching series data for ID: {series_id}")
 
-        response = session.get(url, timeout=settings.download.timeout_max)
-        response.raise_for_status()
-
+        response = _api_get(url, timeout=settings.download.timeout_max)
         data = response.json()
         series_name = data.get("data", {}).get("mainContent", {}).get("statsSeriesTitle", "").replace(".", "")
         episode_ids = []

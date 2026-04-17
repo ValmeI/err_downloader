@@ -116,7 +116,7 @@ def download_single_video(video_id: int, content_type: str, video_info: str, sta
     handle_download_result(result, video_id, video_info, stats)
 
 
-def process_url(url: str, content_type: str, stats: Dict) -> None:
+def process_url(url: str, content_type: str, stats: Dict, processed_series: set) -> None:
     """Process a single URL for download."""
     logger.info("=" * 80)
     logger.success(f"Processing URL: {url}")
@@ -133,6 +133,12 @@ def process_url(url: str, content_type: str, stats: Dict) -> None:
         series_name, episode_ids = get_all_episodes_from_series(video_id)
 
         if episode_ids:
+            series_key = frozenset(episode_ids)
+            if series_key in processed_series:
+                logger.info(f"[{series_name}] Sari juba töödeldud, vahele jäetud (duplikaat-URL)")
+                return
+            processed_series.add(series_key)
+
             if settings.threading.use_threading:
                 download_episodes_threaded(episode_ids, content_type, series_name, stats)
             else:
@@ -199,10 +205,12 @@ def run_download_mode() -> int:
         "successful_list": [],
     }
 
+    processed_series: set = set()
+
     try:
         for url in all_urls:
             content_type = settings.constants.content_type_tv_shows if url in settings.tv_shows else settings.constants.content_type_movies
-            process_url(url, content_type, stats)
+            process_url(url, content_type, stats, processed_series)
 
         print_summary(stats)
 
