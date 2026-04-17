@@ -38,6 +38,7 @@ class RetrySettings(BaseModel):
     wait_min: int
     wait_max: int
     wait_multiplier: int
+    api_delay: float = 0.3
 
 
 class DirectorySettings(BaseModel):

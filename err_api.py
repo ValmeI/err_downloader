@@ -1,5 +1,6 @@
 import re
 import os
+import time
 from typing import Optional, Tuple, List, Set, Dict
 import requests
 from requests.adapters import HTTPAdapter
@@ -34,7 +35,8 @@ def _is_server_error(exception):
     reraise=True,
 )
 def _api_get(url: str, timeout: int) -> requests.Response:
-    """Make API GET request with retry on 5xx errors."""
+    """Make API GET request with retry on 5xx errors and rate limiting."""
+    time.sleep(settings.retry.api_delay)
     response = session.get(url, timeout=timeout)
     response.raise_for_status()
     return response
