@@ -31,6 +31,7 @@ def _is_server_error(exception):
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=30),
     retry=retry_if_exception(_is_server_error),
+    reraise=True,
 )
 def _api_get(url: str, timeout: int) -> requests.Response:
     """Make API GET request with retry on 5xx errors."""
