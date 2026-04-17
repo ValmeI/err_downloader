@@ -35,16 +35,22 @@ class DownloadCache:
         except IOError as e:
             logger.warning(f"Failed to save cache: {e}")
 
+    DRM_MARKER = "DRM_PROTECTED"
+
     def is_downloaded(self, episode_id: int) -> Optional[str]:
         """Check if episode is downloaded and file exists.
 
         Returns the file path if cached and file exists, None otherwise.
+        Also returns DRM_MARKER for DRM-protected episodes.
         """
         key = str(episode_id)
         if key not in self._downloads:
             return None
 
         file_path = self._downloads[key]
+        if file_path == self.DRM_MARKER:
+            return self.DRM_MARKER
+
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
 
@@ -52,6 +58,11 @@ class DownloadCache:
         logger.debug(f"Cached file no longer exists, removing from cache: {file_path}")
         self.remove(episode_id)
         return None
+
+    def mark_drm_protected(self, episode_id: int) -> None:
+        """Mark episode as DRM protected so we skip it on future runs."""
+        self._downloads[str(episode_id)] = self.DRM_MARKER
+        self.save()
 
     def mark_downloaded(self, episode_id: int, file_path: str) -> None:
         """Mark episode as downloaded with its file path."""

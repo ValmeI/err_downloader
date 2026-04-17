@@ -42,19 +42,28 @@ def handle_download_result(result: DownloadResult, video_id: int, video_info: st
     """Process download result: update stats and cache successful downloads."""
     update_stats(stats, result, video_info)
 
+    status = result[0] if isinstance(result, tuple) else result
+
     if isinstance(result, tuple) and len(result) == 2:
-        status, file_path = result
+        _, file_path = result
         if status in ("success", settings.constants.download_skipped):
             cache.mark_downloaded(video_id, file_path)
+    elif status == settings.constants.drm_protected:
+        cache.mark_drm_protected(video_id)
     elif not result:
         logger.error(f"Failed to download: {video_info}")
 
 
 def filter_cached_episodes(episode_ids: List[int], series_name: Optional[str], stats: Dict) -> List[int]:
-    """Filter out cached episodes and update stats for skipped ones."""
+    """Filter out cached and DRM-protected episodes and update stats for skipped ones."""
     episodes_to_download = []
     for ep_id in episode_ids:
-        if cache.is_downloaded(ep_id):
+        cached = cache.is_downloaded(ep_id)
+        if cached == cache.DRM_MARKER:
+            logger.info(f"[{series_name}] DRM cached, skipping: Episode ID {ep_id}")
+            video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
+            update_stats(stats, settings.constants.drm_protected, video_info)
+        elif cached:
             logger.info(f"[{series_name}] Cached, skipping: Episode ID {ep_id}")
             video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
             update_stats(stats, settings.constants.cache_skipped, video_info)
@@ -91,7 +100,13 @@ def download_episodes_sequential(episode_ids: List[int], content_type: str, seri
     for i, ep_id in enumerate(episode_ids, 1):
         video_info = f"{series_name} - Episode ID {ep_id}" if series_name else f"Episode ID {ep_id}"
 
-        if cache.is_downloaded(ep_id):
+        cached = cache.is_downloaded(ep_id)
+        if cached == cache.DRM_MARKER:
+            logger.info(f"[{series_name}] DRM cached, skipping: Episode ID {ep_id}")
+            update_stats(stats, settings.constants.drm_protected, video_info)
+            cached_count += 1
+            continue
+        elif cached:
             logger.info(f"[{series_name}] Cached, skipping: Episode ID {ep_id}")
             update_stats(stats, settings.constants.cache_skipped, video_info)
             cached_count += 1
@@ -107,7 +122,12 @@ def download_episodes_sequential(episode_ids: List[int], content_type: str, seri
 
 def download_single_video(video_id: int, content_type: str, video_info: str, stats: Dict) -> None:
     """Download a single video with cache check."""
-    if cache.is_downloaded(video_id):
+    cached = cache.is_downloaded(video_id)
+    if cached == cache.DRM_MARKER:
+        logger.info(f"DRM cached, skipping: {video_info}")
+        update_stats(stats, settings.constants.drm_protected, video_info)
+        return
+    elif cached:
         logger.info(f"Cached, skipping: {video_info}")
         update_stats(stats, settings.constants.cache_skipped, video_info)
         return
