@@ -167,8 +167,8 @@ def process_url(url: str, content_type: str, stats: Dict, processed_slugs: set) 
                 download_episodes_sequential(episode_ids, content_type, series_name, stats)
         elif series_name == settings.constants.content_not_found_404:
             logger.warning(f"Sisu on ERRist eemaldatud ({settings.constants.content_not_found_404}), vahele jäetud: {url}")
-            stats["failed"] += 1
-            stats["failed_list"].append(f"URL: {url} (sisu eemaldatud ERRist)")
+            stats["removed"] += 1
+            stats["removed_list"].append(f"URL: {url} (sisu eemaldatud ERRist)")
         else:
             title_info = f" '{series_name}'" if series_name else ""
             logger.warning(f"No episodes found for{title_info} {url} (ID: {video_id}), trying single video...")
@@ -202,6 +202,12 @@ def print_summary(stats: Dict) -> None:
         for video in stats["drm_protected_list"]:
             logger.info(f"  - {video}")
 
+    if stats["removed_list"]:
+        logger.info("")
+        logger.warning(f"Eemaldatud ERRist: {stats['removed']}")
+        for video in stats["removed_list"]:
+            logger.warning(f"  - {video}")
+
     if stats["failed_list"]:
         logger.info("")
         logger.warning(f"Ebaõnnestunud: {stats['failed']}")
@@ -221,9 +227,11 @@ def run_download_mode() -> int:
         "successful": 0,
         "skipped": 0,
         "failed": 0,
+        "removed": 0,
         "drm_protected": 0,
         "drm_protected_list": [],
         "failed_list": [],
+        "removed_list": [],
         "successful_list": [],
     }
 
@@ -240,6 +248,8 @@ def run_download_mode() -> int:
             logger.warning(f"Completed with {stats['failed']} failures:")
             for failed_item in stats["failed_list"]:
                 logger.warning(f"  - {failed_item}")
+        elif stats["removed"] > 0:
+            logger.info(f"Completed successfully ({stats['removed']} eemaldatud ERRist)")
 
     except Exception as e:
         logger.error(f"Critical error: {str(e)}")
