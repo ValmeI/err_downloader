@@ -1,4 +1,6 @@
-from err_api import _parse_sitemap_urls, fetch_sitemap_index
+import re
+
+from err_api import LASTEEKRAAN_BASE_URL, _has_playable_content, _parse_sitemap_urls
 
 SAMPLE_XML = (
     '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -10,7 +12,23 @@ SAMPLE_XML = (
 parsed = _parse_sitemap_urls(SAMPLE_XML)
 assert parsed == [(1608776941, "vilda"), (1038778, "porsas-peppa")], parsed
 
-sitemap_urls = fetch_sitemap_index()
-assert any(url.endswith("sitemap0.xml") for url in sitemap_urls), sitemap_urls
+SAMPLE_INDEX_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    "<sitemap><loc>https://lasteekraan.err.ee/sitemap/sitemap0.xml</loc></sitemap>"
+    "<sitemap><loc>https://lasteekraan.err.ee/sitemap/sitemap1.xml</loc></sitemap>"
+    "<sitemap><loc>https://lasteekraan.err.ee/sitemap/videos0.xml</loc></sitemap>"
+    "</sitemapindex>"
+)
 
-print(f"OK: sitemap parser correct, index lists {len(sitemap_urls)} content sitemap(s)")
+index_pattern = rf"<loc>({re.escape(LASTEEKRAAN_BASE_URL)}/sitemap/sitemap\d+\.xml)</loc>"
+index_urls = re.findall(index_pattern, SAMPLE_INDEX_XML)
+assert index_urls == [
+    "https://lasteekraan.err.ee/sitemap/sitemap0.xml",
+    "https://lasteekraan.err.ee/sitemap/sitemap1.xml",
+], index_urls
+
+assert _has_playable_content({"data": {"mainContent": {"medias": [{"src": {}}]}}}) is True
+assert _has_playable_content({"data": {"seasonList": {"items": [{"firstContentId": 1}]}}}) is True
+assert _has_playable_content({"data": {"mainContent": {"medias": []}, "seasonList": {"items": []}}}) is False
+
+print("OK: sitemap parser, index regex and _has_playable_content all correct")

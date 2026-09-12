@@ -11,7 +11,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from settings import settings
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
-SITEMAP_INDEX_URL = "https://lasteekraan.err.ee/sitemap"
+LASTEEKRAAN_BASE_URL = "https://lasteekraan.err.ee"
+SITEMAP_INDEX_URL = f"{LASTEEKRAAN_BASE_URL}/sitemap"
 
 session = requests.Session()
 session.headers.update({"Connection": "keep-alive", "Accept-Encoding": "gzip, deflate"})
@@ -226,7 +227,7 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
         logger.warning(f"Download failed - Network error: {str(e)}")
         raise
     except IOError as e:
-        logger.warning(f"Download failed - File error: {str(e)}")
+        logger.error(f"Download failed - File error: {str(e)}")
         raise
 
 
@@ -365,7 +366,7 @@ def get_season_urls_from_api(content_id: int, show_slug: str) -> Set[str]:
         for season in season_list.get("items", []):
             first_id = season.get("firstContentId")
             if first_id:
-                new_url = f"https://lasteekraan.err.ee/{first_id}/{show_slug}"
+                new_url = f"{LASTEEKRAAN_BASE_URL}/{first_id}/{show_slug}"
                 found_urls.add(new_url)
 
     except Exception as e:
@@ -376,61 +377,78 @@ def get_season_urls_from_api(content_id: int, show_slug: str) -> Set[str]:
 
 def _parse_sitemap_urls(xml_text: str) -> List[Tuple[int, str]]:
     """Extract (contentId, slug) pairs from a sitemap XML's <loc> entries."""
-    return [(int(cid), slug) for cid, slug in re.findall(r"<loc>https://lasteekraan\.err\.ee/(\d+)/([^<]+)</loc>", xml_text)]
+    pattern = rf"<loc>{re.escape(LASTEEKRAAN_BASE_URL)}/(\d+)/([^/<]+)</loc>"
+    return [(int(cid), slug) for cid, slug in re.findall(pattern, xml_text)]
+
+
+def _fetch_text(url: str) -> Optional[str]:
+    """Fetch a URL's body text, or None on a non-200 response or network error."""
+    try:
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            logger.warning(f"Sitemapi päring ebaõnnestus ({response.status_code}): {url}")
+            return None
+        return response.text
+    except Exception as e:
+        logger.warning(f"Sitemapi viga ({url}): {e}")
+        return None
 
 
 def fetch_sitemap_index() -> List[str]:
     """Fetch the sitemap index and return URLs of the active content sitemaps (sitemapN.xml)."""
-    try:
-        response = session.get(SITEMAP_INDEX_URL, timeout=10)
-        if response.status_code != 200:
-            return []
-        return re.findall(r"<loc>(https://lasteekraan\.err\.ee/sitemap/sitemap\d+\.xml)</loc>", response.text)
-    except Exception as e:
-        logger.debug(f"Sitemapi indeksi viga: {e}")
+    text = _fetch_text(SITEMAP_INDEX_URL)
+    if text is None:
         return []
+    pattern = rf"<loc>({re.escape(LASTEEKRAAN_BASE_URL)}/sitemap/sitemap\d+\.xml)</loc>"
+    return re.findall(pattern, text)
 
 
-def fetch_sitemap_content_ids() -> Dict[str, Set[int]]:
-    """Fetch all active sitemaps, return slug -> set of content IDs found for it."""
+def fetch_sitemap_content_ids(wanted_slugs: Set[str]) -> Dict[str, Set[int]]:
+    """Fetch all active sitemaps, return slug -> set of content IDs, restricted to wanted_slugs."""
     by_slug: Dict[str, Set[int]] = {}
 
     for sitemap_url in fetch_sitemap_index():
-        try:
-            response = session.get(sitemap_url, timeout=10)
-            if response.status_code != 200:
-                continue
-            for cid, slug in _parse_sitemap_urls(response.text):
+        text = _fetch_text(sitemap_url)
+        if text is None:
+            continue
+        for cid, slug in _parse_sitemap_urls(text):
+            if slug in wanted_slugs:
                 by_slug.setdefault(slug, set()).add(cid)
-        except Exception as e:
-            logger.debug(f"Sitemapi viga ({sitemap_url}): {e}")
 
     return by_slug
 
 
+def _has_playable_content(data: dict) -> bool:
+    """True if the API payload has direct media or a season list to fall back on."""
+    content_data = data.get("data", {})
+    if content_data.get("mainContent", {}).get("medias"):
+        return True
+    return bool(content_data.get("seasonList", {}).get("items"))
+
+
 def discover_missing_urls_by_sitemap(slug_to_existing_ids: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-    """
-    Resurrect content for slugs whose existing config entry is fully dead.
+    """Resurrect slugs whose every config ID is dead; live slugs are covered by season discovery."""
+    dead_slugs: Set[str] = {
+        slug
+        for slug, existing_ids in slug_to_existing_ids.items()
+        if not any(fetch_video_api_data(int(vid)) is not None for vid in existing_ids)
+    }
 
-    Only slugs with zero live existing IDs are searched in the sitemap (season
-    discovery already covers slugs that still have a live entry).
-    """
+    if not dead_slugs:
+        return {}
+
+    sitemap_by_slug = fetch_sitemap_content_ids(dead_slugs)
     missing_by_show: Dict[str, Set[str]] = {}
-    sitemap_by_slug = fetch_sitemap_content_ids()
 
-    for slug, existing_ids in slug_to_existing_ids.items():
-        first_id = next(iter(existing_ids), None)
-        if first_id and fetch_video_api_data(int(first_id)) is not None:
-            continue
-
-        candidate_ids = sitemap_by_slug.get(slug, set()) - {int(i) for i in existing_ids}
+    for slug in dead_slugs:
+        candidate_ids = sitemap_by_slug.get(slug, set()) - {int(i) for i in slug_to_existing_ids[slug]}
 
         new_urls: Set[str] = set()
         for cid in candidate_ids:
             data = fetch_video_api_data(cid)
-            if not data or not data.get("data", {}).get("mainContent", {}).get("medias"):
+            if not data or not _has_playable_content(data):
                 continue
-            new_urls.add(f"https://lasteekraan.err.ee/{cid}/{slug}")
+            new_urls.add(f"{LASTEEKRAAN_BASE_URL}/{cid}/{slug}")
 
         if new_urls:
             missing_by_show.setdefault(slug, set()).update(new_urls)

@@ -92,3 +92,5 @@ ruff format .
 ERR API endpoint: `https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={id}`
 
 Content URLs format: `https://lasteekraan.err.ee/{content_id}/{slug}`
+
+Sitemap index: `https://lasteekraan.err.ee/sitemap` (queried by `--discover` to resurrect shows whose every config ID is dead)

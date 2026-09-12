@@ -220,6 +220,10 @@ def print_summary(stats: Dict) -> None:
 def run_download_mode() -> int:
     """Run download mode."""
     all_urls = settings.tv_shows + settings.movies
+    if not all_urls:
+        logger.error("Ühtegi URL-i pole config.yaml-is")
+        return 1
+
     logger.info(f"Total URLs to process: {len(all_urls)} (TV Shows: {len(settings.tv_shows)}, Movies: {len(settings.movies)})")
 
     stats = {
@@ -244,7 +248,7 @@ def run_download_mode() -> int:
 
         print_summary(stats)
 
-        if stats["failed"] > 0 and stats["successful"] == 0:
+        if stats["failed"] >= 3 and stats["successful"] == 0:
             logger.error(f"Ükski allalaadimiskatse ei õnnestunud ({stats['failed']} ebaõnnestumist)")
 
         if stats["failed"] > 0:
