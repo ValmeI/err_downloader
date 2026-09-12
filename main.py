@@ -19,7 +19,7 @@ def main() -> int:
     init_logging(settings.logger_level, settings.logger_file)
 
     if args.discover:
-        return run_discovery(settings.tv_shows, args.add)
+        return run_discovery(settings.tv_shows, settings.movies, args.add)
     else:
         return run_download_mode()
 

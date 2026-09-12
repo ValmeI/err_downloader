@@ -11,6 +11,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from settings import settings
 
 API_BASE_URL = "https://services.err.ee/api/v2/vodContent/getContentPageData?contentId={}"
+SITEMAP_INDEX_URL = "https://lasteekraan.err.ee/sitemap"
 
 session = requests.Session()
 session.headers.update({"Connection": "keep-alive", "Accept-Encoding": "gzip, deflate"})
@@ -373,14 +374,86 @@ def get_season_urls_from_api(content_id: int, show_slug: str) -> Set[str]:
     return found_urls
 
 
-def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
+def _parse_sitemap_urls(xml_text: str) -> List[Tuple[int, str]]:
+    """Extract (contentId, slug) pairs from a sitemap XML's <loc> entries."""
+    return [(int(cid), slug) for cid, slug in re.findall(r"<loc>https://lasteekraan\.err\.ee/(\d+)/([^<]+)</loc>", xml_text)]
+
+
+def fetch_sitemap_index() -> List[str]:
+    """Fetch the sitemap index and return URLs of the active content sitemaps (sitemapN.xml)."""
+    try:
+        response = session.get(SITEMAP_INDEX_URL, timeout=10)
+        if response.status_code != 200:
+            return []
+        return re.findall(r"<loc>(https://lasteekraan\.err\.ee/sitemap/sitemap\d+\.xml)</loc>", response.text)
+    except Exception as e:
+        logger.debug(f"Sitemapi indeksi viga: {e}")
+        return []
+
+
+def fetch_sitemap_content_ids() -> Dict[str, Set[int]]:
+    """Fetch all active sitemaps, return slug -> set of content IDs found for it."""
+    by_slug: Dict[str, Set[int]] = {}
+
+    for sitemap_url in fetch_sitemap_index():
+        try:
+            response = session.get(sitemap_url, timeout=10)
+            if response.status_code != 200:
+                continue
+            for cid, slug in _parse_sitemap_urls(response.text):
+                by_slug.setdefault(slug, set()).add(cid)
+        except Exception as e:
+            logger.debug(f"Sitemapi viga ({sitemap_url}): {e}")
+
+    return by_slug
+
+
+def discover_missing_urls_by_sitemap(slug_to_existing_ids: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
     """
-    Discover missing season URLs for TV shows.
+    Resurrect content for slugs whose existing config entry is fully dead.
+
+    Only slugs with zero live existing IDs are searched in the sitemap (season
+    discovery already covers slugs that still have a live entry).
+    """
+    missing_by_show: Dict[str, Set[str]] = {}
+    sitemap_by_slug = fetch_sitemap_content_ids()
+
+    for slug, existing_ids in slug_to_existing_ids.items():
+        first_id = next(iter(existing_ids), None)
+        if first_id and fetch_video_api_data(int(first_id)) is not None:
+            continue
+
+        candidate_ids = sitemap_by_slug.get(slug, set()) - {int(i) for i in existing_ids}
+
+        new_urls: Set[str] = set()
+        for cid in candidate_ids:
+            if fetch_video_api_data(cid) is None:
+                continue
+            new_urls.add(f"https://lasteekraan.err.ee/{cid}/{slug}")
+
+        if new_urls:
+            missing_by_show.setdefault(slug, set()).update(new_urls)
+            logger.success(f"Sitemapist leitud: {slug.replace('-', ' ')} ({len(new_urls)})")
+            for url in sorted(new_urls):
+                logger.success(f"  {url}")
+        else:
+            logger.debug(f"Sitemapist ei leitud uusi tulemusi: {slug}")
+
+    return missing_by_show
+
+
+def discover_missing_urls(tv_show_urls: List[str], movie_urls: Optional[List[str]] = None) -> Dict[str, Set[str]]:
+    """
+    Discover missing season URLs for TV shows plus dead-slug resurrection via sitemap.
 
     Returns dict mapping show_slug -> set of missing URLs.
     """
+    movie_urls = movie_urls or []
+    all_urls = tv_show_urls + movie_urls
+
     existing_by_show: Dict[str, Set[str]] = {}
     existing_ids: Set[str] = set()
+    slug_to_ids: Dict[str, Set[str]] = {}
 
     for url in tv_show_urls:
         slug = extract_show_slug(url)
@@ -389,9 +462,13 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
                 existing_by_show[slug] = set()
             existing_by_show[slug].add(url)
 
+    for url in all_urls:
+        slug = extract_show_slug(url)
         vid = extract_video_id(url)
         if vid:
             existing_ids.add(str(vid))
+            if slug:
+                slug_to_ids.setdefault(slug, set()).add(str(vid))
 
     missing_by_show: Dict[str, Set[str]] = {}
 
@@ -416,5 +493,9 @@ def discover_missing_urls(tv_show_urls: List[str]) -> Dict[str, Set[str]]:
             logger.success(f"Leitud {len(missing)} uut URL-i: {slug.replace('-', ' ')}")
             for url in sorted(missing):
                 logger.success(f"  {url}")
+
+    sitemap_missing = discover_missing_urls_by_sitemap(slug_to_ids)
+    for slug, urls in sitemap_missing.items():
+        missing_by_show.setdefault(slug, set()).update(urls)
 
     return missing_by_show

@@ -28,11 +28,11 @@ def add_urls_to_config(missing_by_show: Dict[str, Set[str]]) -> int:
     return added
 
 
-def run_discovery(tv_show_urls: List[str], add_to_config: bool) -> int:
+def run_discovery(tv_show_urls: List[str], movie_urls: List[str], add_to_config: bool) -> int:
     """Run URL discovery mode."""
     logger.info("Otsin uusi hooaegade URL-e...")
 
-    missing = discover_missing_urls(tv_show_urls)
+    missing = discover_missing_urls(tv_show_urls, movie_urls)
 
     if not missing:
         logger.success(f"Kõik URL-id on juba {CONFIG_PATH}-is!")
