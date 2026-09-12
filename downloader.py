@@ -51,7 +51,7 @@ def handle_download_result(result: DownloadResult, video_id: int, video_info: st
     elif status == settings.constants.drm_protected:
         cache.mark_drm_protected(video_id)
     elif not result:
-        logger.error(f"Failed to download: {video_info}")
+        logger.warning(f"Failed to download: {video_info}")
 
 
 def filter_cached_episodes(episode_ids: List[int], series_name: Optional[str], stats: Dict) -> List[int]:
@@ -143,7 +143,7 @@ def process_url(url: str, content_type: str, stats: Dict, processed_slugs: set) 
 
     video_id = extract_video_id(url)
     if not video_id:
-        logger.error("Failed to extract video ID")
+        logger.warning("Failed to extract video ID")
         stats["failed"] += 1
         stats["failed_list"].append(f"URL: {url} (failed to extract video ID)")
         return
@@ -243,6 +243,9 @@ def run_download_mode() -> int:
             process_url(url, content_type, stats, processed_slugs)
 
         print_summary(stats)
+
+        if stats["failed"] > 0 and stats["successful"] == 0:
+            logger.error(f"Ükski allalaadimiskatse ei õnnestunud ({stats['failed']} ebaõnnestumist)")
 
         if stats["failed"] > 0:
             logger.warning(f"Completed with {stats['failed']} failures:")

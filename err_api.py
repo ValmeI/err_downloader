@@ -61,13 +61,13 @@ def fetch_video_api_data(content_id: int) -> Optional[dict]:
         if e.response.status_code == 404:
             logger.warning(f"Sisu ei ole enam saadaval ERRis (404) - ID: {content_id}. Sisu on tõenäoliselt ERRist eemaldatud või arhiveeritud.")
         else:
-            logger.error(f"HTTP error {e.response.status_code}: {str(e)}")
+            logger.warning(f"HTTP error {e.response.status_code}: {str(e)}")
         return None
     except RequestException as e:
-        logger.error(f"Network error: {str(e)}")
+        logger.warning(f"Network error: {str(e)}")
         return None
     except ValueError as e:
-        logger.error(f"Invalid JSON response: {str(e)}")
+        logger.warning(f"Invalid JSON response: {str(e)}")
         return None
 
 
@@ -109,7 +109,7 @@ def extract_mp4_url(medias: list) -> Optional[str]:
     try:
         return "https:" + medias[0]["src"]["file"].replace("\\", "")
     except (IndexError, KeyError) as e:
-        logger.error(f"Failed to extract MP4 URL: {str(e)}")
+        logger.warning(f"Failed to extract MP4 URL: {str(e)}")
         return None
 
 
@@ -120,7 +120,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
         medias = main_content.get("medias", [])
 
         if not medias:
-            logger.error("No media found in response")
+            logger.warning("No media found in response")
             return None, None, None
 
         if is_drm_protected(medias[0]):
@@ -141,7 +141,7 @@ def parse_video_details(data: dict, content_id: int, content_type: str) -> Tuple
 
         return folder_name, file_title, mp4_url
     except (IndexError, KeyError) as e:
-        logger.error(f"Failed to parse video details: {str(e)}")
+        logger.warning(f"Failed to parse video details: {str(e)}")
         return None, None, None
 
 
@@ -223,10 +223,10 @@ def download_file_with_progress(url: str, file_path: str, file_title: str) -> bo
                         pbar.update(len(chunk))
         return True
     except RequestException as e:
-        logger.error(f"Download failed - Network error: {str(e)}")
+        logger.warning(f"Download failed - Network error: {str(e)}")
         raise
     except IOError as e:
-        logger.error(f"Download failed - File error: {str(e)}")
+        logger.warning(f"Download failed - File error: {str(e)}")
         raise
 
 
@@ -255,7 +255,7 @@ def download_mp4(heading: str, file_title: str, mp4_url: str, content_type: str,
 def run_download(video_content_id: int, content_type: str, series_name: Optional[str] = None) -> str | bool:
     """Execute download for a single video."""
     if not isinstance(video_content_id, int) or video_content_id <= 0:
-        logger.error("Invalid video content ID")
+        logger.warning("Invalid video content ID")
         return False
 
     folder_name, file_name, video_url = get_video_details(video_content_id, content_type)
@@ -267,19 +267,19 @@ def run_download(video_content_id: int, content_type: str, series_name: Optional
         final_folder = series_name if series_name else folder_name
         return download_mp4(final_folder, file_name, video_url, content_type, settings.download.skip_existing)  # type: ignore
 
-    logger.error(f"Failed to get video details for ID: {video_content_id}")
+    logger.warning(f"Failed to get video details for ID: {video_content_id}")
     return False
 
 
 def extract_video_id(url: str) -> Optional[int]:
     """Extract video ID from ERR URL."""
     if not url or not isinstance(url, str):
-        logger.error("Invalid URL provided")
+        logger.warning("Invalid URL provided")
         return None
 
     match = re.search(r"/(\d+)(?:/|$)", url)
     if not match:
-        logger.error("Failed to extract video ID from URL")
+        logger.warning("Failed to extract video ID from URL")
         return None
 
     try:
@@ -287,7 +287,7 @@ def extract_video_id(url: str) -> Optional[int]:
         logger.info(f"Extracted video ID: {found_video_id}")
         return found_video_id
     except ValueError:
-        logger.error("Invalid video ID format")
+        logger.warning("Invalid video ID format")
         return None
 
 
@@ -333,13 +333,13 @@ def get_all_episodes_from_series(series_id: int) -> Tuple[Optional[str], List[in
             )
             return settings.constants.content_not_found_404, []
         else:
-            logger.error(f"Failed to get series data: HTTP error {e.response.status_code}: {str(e)}")
+            logger.warning(f"Failed to get series data: HTTP error {e.response.status_code}: {str(e)}")
         return None, []
     except RequestException as e:
-        logger.error(f"Failed to get series data: {str(e)}")
+        logger.warning(f"Failed to get series data: {str(e)}")
         return None, []
     except (ValueError, KeyError) as e:
-        logger.error(f"Failed to parse series data: {str(e)}")
+        logger.warning(f"Failed to parse series data: {str(e)}")
         return None, []
 
 
@@ -427,7 +427,8 @@ def discover_missing_urls_by_sitemap(slug_to_existing_ids: Dict[str, Set[str]]) 
 
         new_urls: Set[str] = set()
         for cid in candidate_ids:
-            if fetch_video_api_data(cid) is None:
+            data = fetch_video_api_data(cid)
+            if not data or not data.get("data", {}).get("mainContent", {}).get("medias"):
                 continue
             new_urls.add(f"https://lasteekraan.err.ee/{cid}/{slug}")
 
