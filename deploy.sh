@@ -122,22 +122,15 @@ remote_exec_sudo "chown valme:valme $REMOTE_APP_DIR/run_downloader.sh"
 remote_exec "rm -f /tmp/run_downloader.sh"
 log_success "Runtime script deployed"
 
-# Deploy config with path adaptation
-if [[ ! -f "$SCRIPT_DIR/config.yaml" ]]; then
-    log_error "Config not found: $SCRIPT_DIR/config.yaml"
-    log "Copy config.example.yaml to config.yaml and configure it"
-    exit 1
+# Not deployed here: run_downloader.sh's "--discover --add" self-mutates remote config.yaml, overwriting it would lose that.
+if [[ "$DRY_RUN" != true ]]; then
+    if ! remote_exec "test -f $REMOTE_APP_DIR/config.yaml" > /dev/null 2>&1; then
+        log_error "No config.yaml on remote yet."
+        log "Bootstrap it once: scp config.yaml (paths adapted) to $REMOTE_APP_DIR/config.yaml"
+        exit 1
+    fi
 fi
-
-# Convert macOS paths to Linux paths
-local_tmp=$(mktemp)
-sed 's|/Volumes/NAS_Files|/media/nas|g' "$SCRIPT_DIR/config.yaml" > "$local_tmp"
-remote_copy "$local_tmp" "/tmp/err_config.yaml"
-rm -f "$local_tmp"
-remote_exec_sudo "cp /tmp/err_config.yaml $REMOTE_APP_DIR/config.yaml"
-remote_exec_sudo "chown valme:valme $REMOTE_APP_DIR/config.yaml"
-remote_exec "rm -f /tmp/err_config.yaml"
-log_success "Config deployed (paths adapted)"
+log_success "Config left untouched on remote (self-managed via --discover --add)"
 
 # Add cron job if not exists (6:00 and 18:00 daily)
 if ! remote_exec "crontab -l 2>/dev/null | grep -q 'err_downloader/run_downloader.sh'"; then
