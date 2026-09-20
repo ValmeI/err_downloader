@@ -58,10 +58,23 @@ if not _has_playable_content(data):
 fi
 ok "URL is valid and playable"
 
-if ssh -i "$SSH_KEY" "$REMOTE_HOST" "grep -qxF '  - $URL' $REMOTE_CONFIG"; then
+if ssh -i "$SSH_KEY" "$REMOTE_HOST" "grep -qxF -- '- $URL' $REMOTE_CONFIG"; then
     ok "Already present: $URL"
     exit 0
 fi
 
-ssh -i "$SSH_KEY" "$REMOTE_HOST" "sudo sed -i '/^$LIST_KEY:/a\\  - $URL' $REMOTE_CONFIG && sudo chown valme:valme $REMOTE_CONFIG"
+if ! ssh -i "$SSH_KEY" "$REMOTE_HOST" "
+set -e
+cp $REMOTE_CONFIG ${REMOTE_CONFIG}.bak
+sudo sed -i '/^$LIST_KEY:/a\\- $URL' $REMOTE_CONFIG
+sudo chown valme:valme $REMOTE_CONFIG
+if ! python3 -c \"import yaml; yaml.safe_load(open('$REMOTE_CONFIG'))\"; then
+    cp ${REMOTE_CONFIG}.bak $REMOTE_CONFIG
+    echo 'YAML broke after insert, reverted' >&2
+    exit 1
+fi
+"; then
+    fail "Insert broke config YAML, reverted on remote"
+    exit 1
+fi
 ok "Added to $LIST_KEY: $URL"
