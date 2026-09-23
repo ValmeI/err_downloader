@@ -3,7 +3,7 @@
 # Deployed by deploy.sh
 
 LOCKFILE="/tmp/err_downloader.lock"
-APP_DIR="/opt/err_downloader"
+APP_DIR="/home/valme/git/err_downloader"
 
 # Check if already running (with stale lock detection)
 if [ -e "$LOCKFILE" ]; then

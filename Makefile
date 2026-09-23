@@ -11,7 +11,7 @@ discover:
 
 # macOS SMB to the NAS is unreliable; run on homelab (NFS mount, stable).
 remote:
-	ssh homelab.local /opt/err_downloader/run_downloader.sh
+	ssh homelab.local /home/valme/git/err_downloader/run_downloader.sh
 
 lint:
 	ruff check .

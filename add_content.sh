@@ -5,7 +5,7 @@ set -euo pipefail
 
 REMOTE_HOST="${HOMELAB_HOST:-homelab.local}"
 SSH_KEY="${HOMELAB_SSH_KEY:-$HOME/.ssh/id_homelab}"
-REMOTE_CONFIG="/opt/err_downloader/config.yaml"
+REMOTE_CONFIG="/home/valme/git/err_downloader/config.yaml"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 banner() {
