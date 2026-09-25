@@ -13,7 +13,7 @@ err_downloader/
 ├── downloader.py     # Download orchestration (sequential/threaded)
 ├── cache.py          # JSON-based download tracking
 ├── discovery.py      # URL discovery for new seasons
-├── config.yaml       # User configuration (gitignored)
+├── config.yaml       # Live configuration (tracked)
 └── config.example.yaml
 ```
 

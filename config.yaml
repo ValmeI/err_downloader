@@ -1,0 +1,138 @@
+logger_level: INFO
+
+cache_file: .err_downloader_cache.json
+
+logger_file: logs/downloader.log
+
+download:
+  timeout_max: 60
+  chunk_size: 1048576
+  download_all_episodes: true
+  skip_existing: true
+
+threading:
+  use_threading: false
+  max_workers: 4
+
+retry:
+  max_attempts: 3
+  wait_min: 5
+  wait_max: 30
+  wait_multiplier: 1
+
+directories:
+  tv_shows: /media/nas/Downloads/Lastele TV Shows
+  movies: /media/nas/Downloads/Lastele
+
+constants:
+  download_skipped: skipped
+  drm_protected: drm_protected
+  content_not_found_404: not_found_404
+  content_type_tv_shows: tv_shows
+  content_type_movies: movies
+  cache_skipped: cache_skipped
+
+tv_shows:
+- https://lasteekraan.err.ee/1038651/karu-karla
+- https://lasteekraan.err.ee/1608917222/karu-karla
+- https://lasteekraan.err.ee/1147500/karu-karla
+- https://lasteekraan.err.ee/1158270/karu-karla
+- https://lasteekraan.err.ee/1211383/karu-karla
+- https://lasteekraan.err.ee/1211497/karu-karla
+- https://lasteekraan.err.ee/1218493/karu-karla
+- https://lasteekraan.err.ee/1218559/karu-karla
+- https://lasteekraan.err.ee/1608695959/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1608924473/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609675070/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609645949/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609289678/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609324544/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609324547/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609324550/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609334768/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609638760/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609638763/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609645937/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609645940/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609645943/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609645946/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609653068/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609653071/lepatriinu-ja-musta-kassi-imelised-lood
+- https://lasteekraan.err.ee/1609890665/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609912178/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609890668/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609926634/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609891928/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609891931/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609905014/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609905017/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1609912175/mystery-lane-i-ponevad-juhtumid
+- https://lasteekraan.err.ee/1127112/ninjakunstnik
+- https://lasteekraan.err.ee/1143337/ninjakunstnik
+- https://lasteekraan.err.ee/1235431/ninjakunstnik
+- https://lasteekraan.err.ee/1235425/ninjakunstnik
+- https://lasteekraan.err.ee/1127119/ninjakunstnik
+- https://lasteekraan.err.ee/1143335/ninjakunstnik
+- https://lasteekraan.err.ee/1610095616/nutikad-notsud
+- https://lasteekraan.err.ee/1610096894/nutikad-notsud
+- https://lasteekraan.err.ee/1610096897/nutikad-notsud
+- https://lasteekraan.err.ee/1610096900/nutikad-notsud
+- https://lasteekraan.err.ee/1610096903/nutikad-notsud
+- https://lasteekraan.err.ee/1610095775/nutikad-notsud-luhilood
+- https://lasteekraan.err.ee/1610097038/nutikad-notsud-luhilood
+- https://lasteekraan.err.ee/1608995474/peeter-pikk-korv
+- https://lasteekraan.err.ee/1608940043/pips-ja-popi
+- https://lasteekraan.err.ee/1608995627/pips-ja-popi
+- https://lasteekraan.err.ee/1608961280/pips-ja-popi
+- https://lasteekraan.err.ee/1608988697/pips-ja-popi
+- https://lasteekraan.err.ee/1608940046/pips-ja-popi
+- https://lasteekraan.err.ee/1609911974/pisid
+- https://lasteekraan.err.ee/1610017127/pisid
+- https://lasteekraan.err.ee/1038778/porsas-peppa
+- https://lasteekraan.err.ee/1609564709/porsas-peppa
+- https://lasteekraan.err.ee/1609976989/porsas-peppa
+- https://lasteekraan.err.ee/1608242697/porsas-peppa
+- https://lasteekraan.err.ee/1608732397/porsas-peppa
+- https://lasteekraan.err.ee/1608857786/porsas-peppa
+- https://lasteekraan.err.ee/1610094368/porsas-peppa
+- https://lasteekraan.err.ee/1609564736/porsas-peppa
+- https://lasteekraan.err.ee/1608857807/porsas-peppa
+- https://lasteekraan.err.ee/1609564739/porsas-peppa
+- https://lasteekraan.err.ee/1610094371/porsas-peppa
+- https://lasteekraan.err.ee/1610094374/porsas-peppa
+- https://lasteekraan.err.ee/1609594245/porsas-peppa
+- https://lasteekraan.err.ee/1609594248/porsas-peppa
+- https://lasteekraan.err.ee/1610094377/porsas-peppa
+- https://lasteekraan.err.ee/1609594251/porsas-peppa
+- https://lasteekraan.err.ee/1610094380/porsas-peppa
+- https://lasteekraan.err.ee/1609594254/porsas-peppa
+- https://lasteekraan.err.ee/1610094383/porsas-peppa
+- https://lasteekraan.err.ee/1610094386/porsas-peppa
+- https://lasteekraan.err.ee/1609594257/porsas-peppa
+- https://lasteekraan.err.ee/1609594260/porsas-peppa
+- https://lasteekraan.err.ee/1610094389/porsas-peppa
+- https://lasteekraan.err.ee/1609594263/porsas-peppa
+- https://lasteekraan.err.ee/1608170728/porsas-peppa
+- https://lasteekraan.err.ee/1609594266/porsas-peppa
+- https://lasteekraan.err.ee/1609594269/porsas-peppa
+- https://lasteekraan.err.ee/1609594272/porsas-peppa
+- https://lasteekraan.err.ee/1609594275/porsas-peppa
+- https://lasteekraan.err.ee/1609594278/porsas-peppa
+- https://lasteekraan.err.ee/1609594281/porsas-peppa
+- https://lasteekraan.err.ee/1609594284/porsas-peppa
+- https://lasteekraan.err.ee/1609594287/porsas-peppa
+- https://lasteekraan.err.ee/1609594290/porsas-peppa
+- https://lasteekraan.err.ee/1609594293/porsas-peppa
+- https://lasteekraan.err.ee/1610017271/suuruurijad
+- https://lasteekraan.err.ee/1608550807/tuta-asjad
+- https://lasteekraan.err.ee/1608551665/tuta-asjad
+- https://lasteekraan.err.ee/1609296545/tuta-asjad
+- https://lasteekraan.err.ee/1609805240/tuta-asjad
+- https://lasteekraan.err.ee/1608776887/vilda
+
+movies:
+- https://lasteekraan.err.ee/1609107797/asterix-volujoogi-saladus
+- https://lasteekraan.err.ee/1234573/burattino
+- https://lasteekraan.err.ee/1608437159/burattino
+- https://lasteekraan.err.ee/1609451806/paharet
+- https://lasteekraan.err.ee/1609501616/pipraterad-ja-suvamere-aare
