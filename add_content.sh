@@ -9,13 +9,17 @@ REMOTE_CONFIG="/home/valme/git/err_downloader/config.yaml"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 banner() {
-    gum style --border rounded --padding "0 2" --margin "1 0" \
-        --border-foreground 212 --bold "📺 ERR Downloader — Add Content"
+    local b=$'\033[38;5;212m' t=$'\033[0;1m' n=$'\033[0m'
+    printf '\n%s\n%s\n%s\n\n' \
+        "${b}╭───────────────────────────────────╮${n}" \
+        "${b}│${t}  📺 ERR Downloader — Add Content  ${b}│${n}" \
+        "${b}╰───────────────────────────────────╯${n}"
 }
 
-ok()   { gum style --foreground 82 "✔ $*"; }
-fail() { gum style --foreground 196 "✖ $*"; }
-step() { gum style --bold --foreground 212 "▶ $*"; }
+style() { printf '\033[%sm%s\033[0m\n' "$1" "$2"; }
+ok()   { style "38;5;82" "✔ $*"; }
+fail() { style "38;5;196" "✖ $*"; }
+step() { style "1;38;5;212" "▶ $*"; }
 
 usage() { echo "Usage: $(basename "$0") [lasteekraan.err.ee URL] [tv|movie]"; exit 1; }
 [[ $# -le 2 ]] || usage
@@ -23,11 +27,14 @@ usage() { echo "Usage: $(basename "$0") [lasteekraan.err.ee URL] [tv|movie]"; ex
 banner
 
 URL="${1:-}"
-[[ -z "$URL" ]] && URL="$(gum input --placeholder "https://lasteekraan.err.ee/XXXXXXX/nimi" --header "ERR URL")"
+[[ -z "$URL" ]] && read -r -p "ERR URL (https://lasteekraan.err.ee/XXXXXXX/nimi): " URL
 [[ "$URL" == https://lasteekraan.err.ee/* ]] || { fail "Not a lasteekraan.err.ee URL: $URL"; exit 1; }
 
 KIND="${2:-}"
-[[ -z "$KIND" ]] && KIND="$(gum choose --header "Add to which list?" tv movie)"
+if [[ -z "$KIND" ]]; then
+    echo "Add to which list?"
+    select KIND in tv movie; do [[ -n "$KIND" ]] && break; done
+fi
 
 case "$KIND" in
     tv) LIST_KEY="tv_shows" ;;
