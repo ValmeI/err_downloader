@@ -25,6 +25,6 @@ trap "rm -f $LOCKFILE" EXIT
 cd "$APP_DIR" || exit 1
 
 # Activate venv and run (logging handled by Python)
-source venv/bin/activate
+source .venv/bin/activate
 python main.py --discover --add # add new urls to config, in case it found new ones
 python main.py # just run the downloader

@@ -18,7 +18,7 @@ Python-based downloader for ERR (Eesti Rahvusringhääling) video content. Autom
 ## Requirements
 
 - Python 3.12+
-- Virtual environment (recommended)
+- [uv](https://docs.astral.sh/uv/)
 
 ## Setup
 
@@ -29,33 +29,16 @@ git clone <repository_url>
 cd err_downloader
 ```
 
-### 2. Create a virtual environment
+### 2. Install dependencies
+
+Needs [uv](https://docs.astral.sh/uv/). Creates `.venv/` and installs `requirements.txt`:
 
 ```bash
-python -m venv .venv
+make install
+source .venv/bin/activate
 ```
 
-### 3. Activate the virtual environment
-
-- On Linux/macOS:
-
-  ```bash
-  source .venv/bin/activate
-  ```
-
-- On Windows:
-
-  ```bash
-  .venv\Scripts\activate
-  ```
-
-### 4. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 5. Configure the application
+### 3. Configure the application
 
 Copy the example configuration file and adjust settings:
 

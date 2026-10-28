@@ -114,6 +114,16 @@ if ! remote_exec "cd $REMOTE_APP_DIR && git pull" \
     exit 1
 fi
 
+# uv lives in ~/.local/bin, which a non-interactive ssh shell doesn't have on PATH
+UV="\$HOME/.local/bin/uv"
+
+if ! remote_exec "test -d $REMOTE_APP_DIR/.venv" > /dev/null 2>&1; then
+    remote_exec "cd $REMOTE_APP_DIR && $UV venv .venv" "Creating Python virtual environment..."
+fi
+remote_exec "cd $REMOTE_APP_DIR && $UV pip install --python .venv/bin/python -r requirements.txt" \
+    "Installing Python dependencies..."
+log_success "Dependencies installed"
+
 # Deploy runtime script
 remote_copy "$SCRIPT_DIR/run_downloader.sh" "/tmp/run_downloader.sh"
 remote_exec_sudo "cp /tmp/run_downloader.sh $REMOTE_APP_DIR/run_downloader.sh"
